@@ -411,7 +411,7 @@ fun FullWorldTimezoneDialog(
                     value = name,
                     onValueChange = { name = it },
                     label = { Text("Friend's Name") },
-                    placeholder = { Text("e.g. Orange, Janet, Haru") },
+                    placeholder = { Text("e.g. Sky Kid, Moth, Butterfly") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
