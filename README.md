@@ -26,20 +26,6 @@ LumaNest is an offline-first companion application crafted for players of **Sky:
 
 ---
 
-## 🚀 Building & Running
-1. Clone the repository:
-   ```bash
-   git clone <YOUR_GITHUB_REPO_URL>
-   ```
-2. Open the project in **Android Studio** (Ladybug or newer recommended).
-3. Connect an Android device or start an emulator running Android 8.0+.
-4. Run:
-   ```bash
-   ./gradlew assembleDebug
-   ```
-
----
-
 ## 📜 Disclaimer
 LumaNest is an independent, unofficial fan companion app. It is not affiliated with, sponsored by, or endorsed by thatgamecompany. *Sky: Children of the Light* and its intellectual property belong to their respective owners.
 
