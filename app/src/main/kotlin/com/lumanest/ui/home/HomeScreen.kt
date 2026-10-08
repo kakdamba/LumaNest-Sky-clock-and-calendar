@@ -504,9 +504,7 @@ fun HeroEventCard(
     }
 
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 265.dp),
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
             containerColor = DeepMidnight
