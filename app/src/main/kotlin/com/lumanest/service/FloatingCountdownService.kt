@@ -280,16 +280,20 @@ class FloatingCountdownService : Service() {
         }
     }
 
+    private var lastKnownSkyForeground: Boolean = false
+    private var lastForegroundDetectionTime: Long = 0L
+
     private fun isSkyGameForeground(): Boolean {
         // If Usage Access is NOT granted by user, gracefully show the overlay so the feature isn't broken
         if (!hasUsageStatsPermission()) {
             return true
         }
 
+        val now = System.currentTimeMillis()
+
         return try {
             val usageStatsManager = getSystemService(USAGE_STATS_SERVICE) as? android.app.usage.UsageStatsManager ?: return true
-            val time = System.currentTimeMillis()
-            val events = usageStatsManager.queryEvents(time - 1000 * 10, time)
+            val events = usageStatsManager.queryEvents(now - 1000 * 15, now)
             var lastForegroundPackage: String? = null
             val event = android.app.usage.UsageEvents.Event()
             while (events.hasNextEvent()) {
@@ -300,16 +304,29 @@ class FloatingCountdownService : Service() {
             }
 
             if (lastForegroundPackage != null) {
-                lastForegroundPackage == "com.tgc.sky.android"
+                val isSky = lastForegroundPackage == "com.tgc.sky.android"
+                lastKnownSkyForeground = isSky
+                lastForegroundDetectionTime = now
+                isSky
             } else {
-                // Fallback to queryUsageStats if no transition event occurred in the last 10s
+                // Check if within 15s grace period of previously detected Sky session
+                if (lastKnownSkyForeground && (now - lastForegroundDetectionTime) < 15_000L) {
+                    return true
+                }
+
+                // Fallback to queryUsageStats
                 val stats = usageStatsManager.queryUsageStats(
                     android.app.usage.UsageStatsManager.INTERVAL_DAILY,
-                    time - 1000 * 30,
-                    time
+                    now - 1000 * 60,
+                    now
                 )
                 val currentApp = stats?.maxByOrNull { it.lastTimeUsed }?.packageName
-                currentApp == "com.tgc.sky.android"
+                val isSky = currentApp == "com.tgc.sky.android"
+                if (isSky) {
+                    lastKnownSkyForeground = true
+                    lastForegroundDetectionTime = now
+                }
+                isSky
             }
         } catch (_: Exception) {
             true
@@ -338,17 +355,15 @@ class FloatingCountdownService : Service() {
         val allOccurrences = SkyEventEngine.calculateDailyOccurrences(nowEpoch)
 
         // STRICT FILTER RULES:
-        // 1. Only track events user enabled in Home Filters
-        // 2. EXCLUDE Daily Reset & Traveling Spirit Reveal (NOT wax-gathering events)
+        // 1. Only track fast recurring social wax events: Geyser, Grandma, Turtle
+        // 2. EXCLUDE Daily Reset, TS Reveal, and Shards (per Option 1: no long countdowns)
         val validOccurrences = allOccurrences.filter { occ ->
             val id = occ.event.id
-            if (id == "daily_reset" || id == "daily_ts_reveal") return@filter false
             when (id) {
                 "daily_geyser" -> prefs.filterGeyser
                 "daily_grandma" -> prefs.filterGrandma
                 "daily_turtle" -> prefs.filterTurtle
-                "daily_shard_red", "daily_shard_black" -> prefs.filterShards
-                else -> true
+                else -> false // Exclude Shards, Reset, TS Reveal from floating progress bar
             }
         }
 

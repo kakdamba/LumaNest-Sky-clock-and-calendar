@@ -14,8 +14,8 @@ android {
         applicationId = "com.lumanest.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "V.2"
+        versionCode = 3
+        versionName = "V.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

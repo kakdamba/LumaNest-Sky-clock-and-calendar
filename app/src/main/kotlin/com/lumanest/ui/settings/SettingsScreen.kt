@@ -506,7 +506,7 @@ fun SettingsScreen(
             val coroutineScope = rememberCoroutineScope()
 
             LaunchedEffect(Unit) {
-                updateInfo = com.lumanest.updater.AppUpdater.checkForUpdate("V.2")
+                updateInfo = com.lumanest.updater.AppUpdater.checkForUpdate("V.3")
             }
 
             Card(
@@ -533,7 +533,7 @@ fun SettingsScreen(
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "Current version: V.2",
+                                text = "Current version: V.3",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MutedSlate
                             )
@@ -544,7 +544,7 @@ fun SettingsScreen(
                                 onClick = {
                                     isChecking = true
                                     coroutineScope.launch {
-                                        updateInfo = com.lumanest.updater.AppUpdater.checkForUpdate("V.2")
+                                        updateInfo = com.lumanest.updater.AppUpdater.checkForUpdate("V.3")
                                         isChecking = false
                                         if (updateInfo?.hasUpdate != true) {
                                             android.widget.Toast.makeText(context, "LumaNest is up to date! ✨", android.widget.Toast.LENGTH_SHORT).show()
@@ -846,7 +846,7 @@ fun SettingsScreen(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = "LumaNest V.2",
+                            text = "LumaNest V.3",
                             style = MaterialTheme.typography.labelMedium,
                             color = CozyWarmAmber,
                             fontWeight = FontWeight.Bold

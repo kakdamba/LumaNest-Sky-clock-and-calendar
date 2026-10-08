@@ -532,19 +532,17 @@ fun HeroEventCard(
                     alignment = Alignment.Center
                 )
 
-                // Very light bottom gradient only under the countdown & progress bar
+                // Smooth gradient overlay spanning the card so bottom text is perfectly legible with zero harsh cutout line
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(85.dp)
-                        .align(Alignment.BottomCenter)
+                        .matchParentSize()
                         .background(
                             Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Transparent,
-                                    Color.Black.copy(alpha = 0.50f),
-                                    Color.Black.copy(alpha = 0.75f)
-                                )
+                                0.0f to Color.Black.copy(alpha = 0.25f),
+                                0.35f to Color.Transparent,
+                                0.60f to Color.Black.copy(alpha = 0.30f),
+                                0.82f to Color.Black.copy(alpha = 0.65f),
+                                1.0f to Color.Black.copy(alpha = 0.85f)
                             )
                         )
                 )

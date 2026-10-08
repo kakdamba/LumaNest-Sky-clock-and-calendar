@@ -249,9 +249,16 @@ fun CalendarEventCard(event: SkyEvent, userZoneId: ZoneId) {
     // Title color: Season name in Orange, others in DogFluffWhite
     val titleColor = if (event.category == EventCategory.SEASON) Color(0xFFFB923C) else DogFluffWhite
 
-    val artDrawableRes = when (event.category) {
-        EventCategory.TRAVELING_SPIRIT -> com.lumanest.app.R.drawable.art_traveling_spirit
-        EventCategory.SHARD_ERUPTION -> {
+    val artDrawableRes = when {
+        event.id.contains("pearl", ignoreCase = true) || event.name.contains("Pearl", ignoreCase = true) ->
+            com.lumanest.app.R.drawable.art_season_pearl
+        event.id.contains("mischief", ignoreCase = true) || event.name.contains("Mischief", ignoreCase = true) ->
+            com.lumanest.app.R.drawable.art_days_mischief
+        event.id.contains("double_candles", ignoreCase = true) || event.name.contains("Double Treasure", ignoreCase = true) ->
+            com.lumanest.app.R.drawable.art_double_candles
+        event.category == EventCategory.TRAVELING_SPIRIT ->
+            com.lumanest.app.R.drawable.art_traveling_spirit
+        event.category == EventCategory.SHARD_ERUPTION -> {
             if (event.name.contains("Red", ignoreCase = true)) com.lumanest.app.R.drawable.art_shard_red
             else com.lumanest.app.R.drawable.art_shard_black
         }

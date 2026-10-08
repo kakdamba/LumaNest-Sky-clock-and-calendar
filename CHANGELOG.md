@@ -2,7 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
-## [v0.1] — 2026-10-07
+## [V.3] — 2026-10-08
+
+### 🌟 Highlights & Polish
+- **Home Screen Top Card Gradient Fix**:
+  - Replaced the harsh 85dp bottom black box with a smooth, seamless multi-stop vertical vignette gradient (`0% -> 35% -> 60% -> 85%`).
+  - Light watercolor paintings (**Polluted Geyser**, **Grandma's Dinner**, and **Sanctuary Turtle**) now blend cleanly into the card border with zero abrupt cut lines.
+- **Floating Progress Bar (Sky Running Mode) Stability**:
+  - Stabilized `UsageStats` foreground detection with session state persistence and a 15-second grace window, preventing the progress bar from randomly disappearing during gameplay.
+  - Excluded long 4-hour / 50-minute Shard Eruptions from the floating overlay, focusing strictly on fast recurring social wax events (**Geyser 15m**, **Grandma 10m**, **Turtle 10m**) and eliminating 99+ minute timer overflows.
+- **New Artwork Integration**:
+  - Converted and bound 3 brand-new community watercolor illustrations to their respective events:
+    - 🌊 **Season of Pearl** (`art_season_pearl.jpg`)
+    - 🎃 **Days of Mischief** (`art_days_mischief.jpg`)
+    - 🕯️ **Double Treasure Candles** (`art_double_candles.jpg`)
+- **Friends Privacy & UI Polish**:
+  - Completely removed mock/demo friend entries (`Orange`, `Janet`, `Haru`). New users start with 100% private, clean lists with only their device time ("You").
+  - Fixed button text wrapping on the Friends screen (**`+ Add`**) and Calendar screen (**`.ics`**).
+- **Official App Version Bump**:
+  - Upgraded codebase and configs uniformly to **V.3** (`versionCode = 3`).
 
 ### Milestone Release Highlights
 - **In-Game Bottom Progress Bar (Sky Running Mode)**:
