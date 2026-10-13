@@ -42,6 +42,13 @@ class EventRepository(
         }
     }
 
+    companion object {
+        private const val REMOTE_EVENTS_URL_MAIN =
+            "https://raw.githubusercontent.com/kakdamba/LumaNest-Sky-clock-and-calendar/main/app/src/main/assets/events_seed.json"
+        private const val REMOTE_EVENTS_URL_MASTER =
+            "https://raw.githubusercontent.com/kakdamba/LumaNest-Sky-clock-and-calendar/master/app/src/main/assets/events_seed.json"
+    }
+
     suspend fun initializeSeedDataIfNeeded() = withContext(Dispatchers.IO) {
         try {
             val jsonString = context.assets.open("events_seed.json").bufferedReader().use { it.readText() }
@@ -52,6 +59,67 @@ class EventRepository(
             initializeFriendsIfNeeded()
         } catch (e: Exception) {
             e.printStackTrace()
+        }
+    }
+
+    /**
+     * DEC-002: Over-The-Air (OTA) remote event sync.
+     * Silently checks GitHub raw events_seed.json on app open / resume.
+     * Updates local Room DB if online while preserving user's favorite selections.
+     * Offline-first (DEC-001): Never crashes or delays app if offline.
+     */
+    suspend fun syncRemoteEvents(): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val jsonString = fetchRemoteJson(REMOTE_EVENTS_URL_MAIN)
+                ?: fetchRemoteJson(REMOTE_EVENTS_URL_MASTER)
+                ?: return@withContext false
+
+            val meta = json.decodeFromString<EventDatabaseMeta>(jsonString)
+            if (meta.events.isEmpty()) return@withContext false
+
+            // Preserve user's local favorites
+            val currentEvents = eventDao.getAllEventsSync()
+            val favoriteIds = currentEvents.filter { it.isFavorite }.map { it.id }.toSet()
+
+            // Filter out any unverified double currency events
+            val filteredEvents = meta.events.filter {
+                !it.id.contains("double_candles", ignoreCase = true) &&
+                !it.name.contains("Double Treasure", ignoreCase = true)
+            }
+
+            val updatedEntities = filteredEvents.map { event ->
+                val entity = EventEntity.fromModel(event)
+                if (favoriteIds.contains(entity.id)) {
+                    entity.copy(isFavorite = true)
+                } else {
+                    entity
+                }
+            }
+
+            eventDao.clearAll()
+            eventDao.insertEvents(updatedEntities)
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun fetchRemoteJson(urlString: String): String? {
+        return try {
+            val url = java.net.URL(urlString)
+            val connection = (url.openConnection() as java.net.HttpURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = 5000
+                readTimeout = 5000
+                useCaches = false
+            }
+            if (connection.responseCode == 200) {
+                connection.inputStream.bufferedReader().use { it.readText() }
+            } else {
+                null
+            }
+        } catch (_: Exception) {
+            null
         }
     }
 

@@ -33,6 +33,10 @@ fun SettingsScreen(
     onNavigateToPrivacyPolicy: () -> Unit = {}
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
+    val view = androidx.compose.ui.platform.LocalView.current
+    val performHaptic = {
+        view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+    }
     val prefs = remember { com.lumanest.data.local.PreferencesManager(context) }
 
     var quietHoursEnabled by remember { mutableStateOf(prefs.quietHoursEnabled) }
@@ -43,10 +47,21 @@ fun SettingsScreen(
 
     var skyRunningDetection by remember { mutableStateOf(prefs.skyRunningEnabled) }
     var countdownSeconds by remember { mutableStateOf(prefs.skyRunningSeconds) }
+    var overlayPosition by remember { mutableStateOf(prefs.overlayPosition) }
     var showOverlayPermissionDialog by remember { mutableStateOf(false) }
     var showUsageAccessDialog by remember { mutableStateOf(false) }
 
-    LazyColumn(
+    // Event Reminders state
+    var notificationsEnabled by remember { mutableStateOf(prefs.notificationsEnabled) }
+    var notifyLeadMinutes by remember { mutableStateOf(prefs.notifyLeadMinutes) }
+    var notifyGeyser by remember { mutableStateOf(prefs.notifyGeyser) }
+    var notifyGrandma by remember { mutableStateOf(prefs.notifyGrandma) }
+    var notifyTurtle by remember { mutableStateOf(prefs.notifyTurtle) }
+    var notifyShards by remember { mutableStateOf(prefs.notifyShards) }
+    var notifyReset by remember { mutableStateOf(prefs.notifyReset) }
+    var sanctuaryAmbianceEffect by remember { mutableStateOf(prefs.sanctuaryAmbianceEffect) }
+
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(
@@ -54,9 +69,18 @@ fun SettingsScreen(
                     colors = listOf(Color(0xFF0F172A), DeepMidnight, Color(0xFF090D14))
                 )
             )
-            .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        val isStarlightActive = sanctuaryAmbianceEffect == "STARLIGHT_DRIFT" || sanctuaryAmbianceEffect == "AERO_SHARDS"
+        if (isStarlightActive) {
+            com.lumanest.ui.components.AeroShardsBackground()
+        }
+
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
         item {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
@@ -111,7 +135,10 @@ fun SettingsScreen(
                         }
                         Switch(
                             checked = !is24Hour,
-                            onCheckedChange = { onTimeFormatChanged(!it) },
+                            onCheckedChange = {
+                                performHaptic()
+                                onTimeFormatChanged(!it)
+                            },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = DeepMidnight,
                                 checkedTrackColor = CozyWarmAmber
@@ -133,7 +160,226 @@ fun SettingsScreen(
             }
         }
 
-        // 2. Quiet Hours Settings (Customizable with native TimePickerDialog)
+        // 2. Event Notifications Card
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = NightSurface),
+                border = CardDefaults.outlinedCardBorder().copy(
+                    brush = androidx.compose.ui.graphics.SolidColor(CardBorder)
+                )
+            ) {
+                Column(modifier = Modifier.padding(18.dp)) {
+                    Text(
+                        text = "EVENT NOTIFICATIONS",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = CozyWarmAmber,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Event Reminders",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = DogFluffWhite,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = if (notificationsEnabled) "Remind before daily events start" else "Disabled",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MutedSlate
+                            )
+                        }
+                        Switch(
+                            checked = notificationsEnabled,
+                            onCheckedChange = {
+                                performHaptic()
+                                notificationsEnabled = it
+                                prefs.notificationsEnabled = it
+                                if (it) {
+                                    com.lumanest.notification.EventNotificationReceiver.scheduleNextAlarms(context)
+                                } else {
+                                    com.lumanest.notification.EventNotificationReceiver.cancelAllAlarms(context)
+                                }
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = DeepMidnight,
+                                checkedTrackColor = CozyWarmAmber
+                            )
+                        )
+                    }
+
+                    if (notificationsEnabled) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        HorizontalDivider(color = NightSurfaceVariant)
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Text(
+                            text = "REMIND ME BEFORE EVENT",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = CozyWarmAmber,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            listOf(5, 10, 15).forEach { mins ->
+                                val isSelected = notifyLeadMinutes == mins
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = if (isSelected) CozyWarmAmber else NightSurfaceVariant,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable {
+                                            performHaptic()
+                                            notifyLeadMinutes = mins
+                                            prefs.notifyLeadMinutes = mins
+                                            com.lumanest.notification.EventNotificationReceiver.scheduleNextAlarms(context)
+                                        }
+                                ) {
+                                    Box(
+                                        modifier = Modifier.padding(vertical = 10.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "${mins}m before",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                            color = if (isSelected) DeepMidnight else DogFluffWhite
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+                        Text(
+                            text = "SELECT EVENTS TO TRACK",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = CozyWarmAmber,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        @Composable
+                        fun EventReminderRow(
+                            emoji: String,
+                            title: String,
+                            subtitle: String,
+                            checked: Boolean,
+                            onToggle: (Boolean) -> Unit
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 6.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text(text = emoji, fontSize = 20.sp)
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Column {
+                                        Text(
+                                            text = title,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = DogFluffWhite,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                        Text(
+                                            text = subtitle,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MutedSlate
+                                        )
+                                    }
+                                }
+                                Switch(
+                                    checked = checked,
+                                    onCheckedChange = {
+                                        performHaptic()
+                                        onToggle(it)
+                                        com.lumanest.notification.EventNotificationReceiver.scheduleNextAlarms(context)
+                                    },
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = DeepMidnight,
+                                        checkedTrackColor = CozyWarmAmber
+                                    )
+                                )
+                            }
+                        }
+
+                        EventReminderRow(
+                            emoji = "♨️",
+                            title = "Polluted Geyser",
+                            subtitle = "Every 2 hours at XX:05 PT",
+                            checked = notifyGeyser,
+                            onToggle = { notifyGeyser = it; prefs.notifyGeyser = it }
+                        )
+
+                        EventReminderRow(
+                            emoji = "🍞",
+                            title = "Grandma's Dinner",
+                            subtitle = "Every 2 hours at XX:35 PT",
+                            checked = notifyGrandma,
+                            onToggle = { notifyGrandma = it; prefs.notifyGrandma = it }
+                        )
+
+                        EventReminderRow(
+                            emoji = "🐢",
+                            title = "Sanctuary Turtle",
+                            subtitle = "Every 2 hours at XX:50 PT",
+                            checked = notifyTurtle,
+                            onToggle = { notifyTurtle = it; prefs.notifyTurtle = it }
+                        )
+
+                        EventReminderRow(
+                            emoji = "🌋",
+                            title = "Shard Eruptions",
+                            subtitle = "Red & Black shard falling windows",
+                            checked = notifyShards,
+                            onToggle = { notifyShards = it; prefs.notifyShards = it }
+                        )
+
+                        EventReminderRow(
+                            emoji = "🌅",
+                            title = "Daily Reset",
+                            subtitle = "00:00 PT Sky server daily reset",
+                            checked = notifyReset,
+                            onToggle = { notifyReset = it; prefs.notifyReset = it }
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = NightSurfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "🎮 Smart Rule: Notifications are automatically silenced while playing Sky with the Floating Countdown active.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = StarlightBlue,
+                                modifier = Modifier.padding(10.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. Quiet Hours Settings (Customizable with native TimePickerDialog)
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -188,6 +434,7 @@ fun SettingsScreen(
                         Switch(
                             checked = quietHoursEnabled,
                             onCheckedChange = {
+                                performHaptic()
                                 quietHoursEnabled = it
                                 prefs.quietHoursEnabled = it
                             },
@@ -285,7 +532,7 @@ fun SettingsScreen(
             }
         }
 
-        // 3. Sky Running Mode (Interactive with uniform 30s, 20s, 10s selector)
+        // 3. Live Event Progress Bar (Interactive with uniform selector & position options)
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -303,16 +550,16 @@ fun SettingsScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Sky Running Mode",
+                                text = "Live Event Progress Bar",
                                 style = MaterialTheme.typography.titleMedium,
                                 color = DogFluffWhite,
                                 fontWeight = FontWeight.SemiBold
                             )
                             Text(
                                 text = if (skyRunningDetection)
-                                    "Active: alerts when Sky starts with final ${countdownSeconds}s banner"
+                                    "Active: floating on-screen bar ($overlayPosition) while playing Sky"
                                 else
-                                    "Companion audio/haptic countdown before event starts",
+                                    "Floating countdown & progress bar at the bottom of your screen while playing Sky",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = if (skyRunningDetection) Color(0xFF4ADE80) else MutedSlate
                             )
@@ -320,6 +567,7 @@ fun SettingsScreen(
                         Switch(
                             checked = skyRunningDetection,
                             onCheckedChange = { isChecked ->
+                                performHaptic()
                                 if (isChecked) {
                                     if (!android.provider.Settings.canDrawOverlays(context)) {
                                         showOverlayPermissionDialog = true
@@ -373,6 +621,56 @@ fun SettingsScreen(
                         Spacer(modifier = Modifier.height(12.dp))
 
                         Text(
+                            text = "ON-SCREEN STYLE",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = CozyWarmAmber,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            listOf(
+                                "TOP" to "🕊️ Wing Arc",
+                                "EMOJI" to "⏱️ Emoji Timers",
+                                "BOTTOM" to "📏 Bottom"
+                            ).forEach { (posKey, label) ->
+                                val isSelected = (overlayPosition == posKey)
+                                Surface(
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = if (isSelected) CozyWarmAmber else NightSurfaceVariant,
+                                    border = if (isSelected) null else androidx.compose.foundation.BorderStroke(1.dp, CardBorder),
+                                    onClick = {
+                                        performHaptic()
+                                        overlayPosition = posKey
+                                        prefs.overlayPosition = posKey
+                                    }
+                                ) {
+                                    Box(
+                                        modifier = Modifier.padding(vertical = 10.dp, horizontal = 2.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = label,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = if (isSelected) DeepMidnight else DogFluffWhite,
+                                            fontWeight = FontWeight.Bold,
+                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                            maxLines = 1
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+                        HorizontalDivider(color = NightSurfaceVariant)
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Text(
                             text = "PRE-EVENT COUNTDOWN DURATION",
                             style = MaterialTheme.typography.labelSmall,
                             color = CozyWarmAmber,
@@ -398,6 +696,7 @@ fun SettingsScreen(
                                     color = if (isSelected) CozyWarmAmber else NightSurfaceVariant,
                                     border = if (isSelected) null else androidx.compose.foundation.BorderStroke(1.dp, CardBorder),
                                     onClick = {
+                                        performHaptic()
                                         countdownSeconds = seconds
                                         prefs.skyRunningSeconds = seconds
                                     }
@@ -479,34 +778,193 @@ fun SettingsScreen(
                             Spacer(modifier = Modifier.height(10.dp))
                         }
 
-                        // Preview In-Game Bar Button
-                        OutlinedButton(
-                            onClick = {
-                                if (!android.provider.Settings.canDrawOverlays(context)) {
-                                    showOverlayPermissionDialog = true
-                                } else {
-                                    com.lumanest.service.FloatingCountdownService.triggerPreview(context)
-                                    android.widget.Toast.makeText(context, "Showing 10-second test bar at bottom of screen!", android.widget.Toast.LENGTH_LONG).show()
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Text(text = "👀 Preview In-Game Bar (10s Test)", color = CozyWarmAmber, fontWeight = FontWeight.Bold)
+                        if (overlayPosition == "TOP") {
+                            Button(
+                                onClick = {
+                                    if (!android.provider.Settings.canDrawOverlays(context)) {
+                                        showOverlayPermissionDialog = true
+                                    } else {
+                                        // Launch or switch to Sky so the player aligns directly over their wing meter
+                                        val skyIntent = context.packageManager.getLaunchIntentForPackage("com.tgc.sky.android")
+                                        if (skyIntent != null) {
+                                            skyIntent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                            try {
+                                                context.startActivity(skyIntent)
+                                            } catch (_: Exception) {}
+                                        }
+                                        com.lumanest.service.FloatingCountdownService.triggerCustomize(context)
+                                        android.widget.Toast.makeText(context, "Drag Up/Down to align with wing meter, then tap [Save & Set]!", android.widget.Toast.LENGTH_LONG).show()
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = CozyWarmAmber)
+                            ) {
+                                Text(
+                                    text = "🎯 Adjust & Align with Wing Meter",
+                                    color = DeepMidnight,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        } else if (overlayPosition == "EMOJI") {
+                            OutlinedButton(
+                                onClick = {
+                                    if (!android.provider.Settings.canDrawOverlays(context)) {
+                                        showOverlayPermissionDialog = true
+                                    } else {
+                                        com.lumanest.service.FloatingCountdownService.triggerPreview(context)
+                                        android.widget.Toast.makeText(context, "Showing 10-second emoji timer test!", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(text = "👀 Preview Emoji Timers (10s Test)", color = CozyWarmAmber, fontWeight = FontWeight.Bold)
+                            }
+                        } else if (overlayPosition == "BOTTOM") {
+                            OutlinedButton(
+                                onClick = {
+                                    if (!android.provider.Settings.canDrawOverlays(context)) {
+                                        showOverlayPermissionDialog = true
+                                    } else {
+                                        com.lumanest.service.FloatingCountdownService.triggerPreview(context)
+                                        android.widget.Toast.makeText(context, "Showing 10-second test bar!", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(text = "👀 Preview In-Game Bar (10s Test)", color = CozyWarmAmber, fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }
             }
         }
 
-        // 4. In-App GitHub Updater Card
+        // 4. Sanctuary Ambiance Card (Ambient visuals with smart overlay auto-pause)
         item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = NightSurface),
+                border = CardDefaults.outlinedCardBorder().copy(
+                    brush = androidx.compose.ui.graphics.SolidColor(CardBorder)
+                )
+            ) {
+                Column(modifier = Modifier.padding(18.dp)) {
+                    Text(
+                        text = "🕯️ SANCTUARY AMBIANCE",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = CozyWarmAmber,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Text(
+                        text = "Sanctuary Ambiance",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = DogFluffWhite,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "Off by default to maximize battery saver. Select Starlight Drift to enjoy gentle luminous crystal shards flowing across your screens.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MutedSlate
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Effect Selector Row (extensible for future effects)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(NightSurfaceVariant)
+                            .padding(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        val isOff = sanctuaryAmbianceEffect == "OFF"
+                        val isStarlight = sanctuaryAmbianceEffect == "STARLIGHT_DRIFT" || sanctuaryAmbianceEffect == "AERO_SHARDS"
+
+                        // Off Option
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable {
+                                    performHaptic()
+                                    sanctuaryAmbianceEffect = "OFF"
+                                    prefs.sanctuaryAmbianceEffect = "OFF"
+                                },
+                            color = if (isOff) CozyWarmAmber else Color.Transparent,
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier.padding(vertical = 10.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "❌ Off",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = if (isOff) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isOff) DeepMidnight else MutedSlate
+                                )
+                            }
+                        }
+
+                        // Starlight Drift Option
+                        Surface(
+                            modifier = Modifier
+                                .weight(1.3f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable {
+                                    performHaptic()
+                                    sanctuaryAmbianceEffect = "STARLIGHT_DRIFT"
+                                    prefs.sanctuaryAmbianceEffect = "STARLIGHT_DRIFT"
+                                },
+                            color = if (isStarlight) CozyWarmAmber else Color.Transparent,
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier.padding(vertical = 10.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "✨ Starlight Drift",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = if (isStarlight) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isStarlight) DeepMidnight else MutedSlate
+                                )
+                            }
+                        }
+                    }
+
+                    if (sanctuaryAmbianceEffect == "STARLIGHT_DRIFT" || sanctuaryAmbianceEffect == "AERO_SHARDS") {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "✨ Active: Luminous crystal shards floating peacefully across Home, Calendar, and Settings screens. Automatically freezes when the app is minimized or screen is locked (0% battery drain).",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = StarlightBlue,
+                            fontSize = 11.sp
+                        )
+                    }
+                }
+            }
+        }
+
+        // 5. In-App GitHub Updater Card
+        item {
+            val currentVersionName = remember {
+                com.lumanest.updater.AppUpdater.getInstalledVersionName(context)
+            }
             var updateInfo by remember { mutableStateOf<com.lumanest.updater.AppUpdateInfo?>(null) }
             var isChecking by remember { mutableStateOf(false) }
             val coroutineScope = rememberCoroutineScope()
 
-            LaunchedEffect(Unit) {
-                updateInfo = com.lumanest.updater.AppUpdater.checkForUpdate("V.3")
+            LaunchedEffect(currentVersionName) {
+                updateInfo = com.lumanest.updater.AppUpdater.checkForUpdate(currentVersionName)
             }
 
             Card(
@@ -533,7 +991,7 @@ fun SettingsScreen(
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "Current version: V.3",
+                                text = "Current version: $currentVersionName",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MutedSlate
                             )
@@ -544,7 +1002,7 @@ fun SettingsScreen(
                                 onClick = {
                                     isChecking = true
                                     coroutineScope.launch {
-                                        updateInfo = com.lumanest.updater.AppUpdater.checkForUpdate("V.3")
+                                        updateInfo = com.lumanest.updater.AppUpdater.checkForUpdate(currentVersionName)
                                         isChecking = false
                                         if (updateInfo?.hasUpdate != true) {
                                             android.widget.Toast.makeText(context, "LumaNest is up to date! ✨", android.widget.Toast.LENGTH_SHORT).show()
@@ -567,8 +1025,9 @@ fun SettingsScreen(
                             border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEA580C))
                         ) {
                             Column(modifier = Modifier.padding(14.dp)) {
+                                val cleanLatest = updateInfo?.latestVersionName?.trimStart('v', 'V', ' ') ?: ""
                                 Text(
-                                    text = "✨ New Update Available: v${updateInfo?.latestVersionName}",
+                                    text = "✨ New Update Available: V.$cleanLatest",
                                     style = MaterialTheme.typography.titleSmall,
                                     color = Color(0xFFFB923C),
                                     fontWeight = FontWeight.Bold
@@ -872,6 +1331,7 @@ fun SettingsScreen(
         item {
             Spacer(modifier = Modifier.height(32.dp))
         }
+    }
     }
 
     if (showOverlayPermissionDialog) {

@@ -23,6 +23,19 @@ class PreferencesManager(context: Context) {
         private const val KEY_FILTER_RESET = "filter_reset"
         private const val KEY_FILTER_TS_REVEAL = "filter_ts_reveal"
         private const val KEY_OVERLAY_OFFSET_Y = "overlay_offset_y"
+
+        // Event Reminder Notification preferences
+        private const val KEY_NOTIFICATIONS_ENABLED = "event_notifications_enabled"
+        private const val KEY_NOTIFY_LEAD_MINUTES = "event_notify_lead_minutes"
+        private const val KEY_NOTIFY_GEYSER = "notify_event_geyser"
+        private const val KEY_NOTIFY_GRANDMA = "notify_event_grandma"
+        private const val KEY_NOTIFY_TURTLE = "notify_event_turtle"
+        private const val KEY_NOTIFY_SHARDS = "notify_event_shards"
+        private const val KEY_NOTIFY_RESET = "notify_event_reset"
+        private const val KEY_OVERLAY_POSITION = "overlay_position" // "BOTTOM" or "TOP"
+        private const val KEY_WING_ARC_OFFSET_Y = "wing_arc_offset_y"
+        private const val KEY_WING_ARC_SIZE_DP = "wing_arc_size_dp"
+        private const val KEY_SANCTUARY_AMBIANCE_EFFECT = "sanctuary_ambiance_effect"
     }
 
     var skyRunningEnabled: Boolean
@@ -80,4 +93,52 @@ class PreferencesManager(context: Context) {
     var overlayOffsetY: Int
         get() = prefs.getInt(KEY_OVERLAY_OFFSET_Y, 0)
         set(value) = prefs.edit().putInt(KEY_OVERLAY_OFFSET_Y, value).apply()
+
+    var notificationsEnabled: Boolean
+        get() = prefs.getBoolean(KEY_NOTIFICATIONS_ENABLED, true)
+        set(value) = prefs.edit().putBoolean(KEY_NOTIFICATIONS_ENABLED, value).apply()
+
+    var notifyLeadMinutes: Int
+        get() = prefs.getInt(KEY_NOTIFY_LEAD_MINUTES, 5)
+        set(value) = prefs.edit().putInt(KEY_NOTIFY_LEAD_MINUTES, value).apply()
+
+    var notifyGeyser: Boolean
+        get() = prefs.getBoolean(KEY_NOTIFY_GEYSER, true)
+        set(value) = prefs.edit().putBoolean(KEY_NOTIFY_GEYSER, value).apply()
+
+    var notifyGrandma: Boolean
+        get() = prefs.getBoolean(KEY_NOTIFY_GRANDMA, true)
+        set(value) = prefs.edit().putBoolean(KEY_NOTIFY_GRANDMA, value).apply()
+
+    var notifyTurtle: Boolean
+        get() = prefs.getBoolean(KEY_NOTIFY_TURTLE, true)
+        set(value) = prefs.edit().putBoolean(KEY_NOTIFY_TURTLE, value).apply()
+
+    var notifyShards: Boolean
+        get() = prefs.getBoolean(KEY_NOTIFY_SHARDS, true)
+        set(value) = prefs.edit().putBoolean(KEY_NOTIFY_SHARDS, value).apply()
+
+    var notifyReset: Boolean
+        get() = prefs.getBoolean(KEY_NOTIFY_RESET, true)
+        set(value) = prefs.edit().putBoolean(KEY_NOTIFY_RESET, value).apply()
+
+    var overlayPosition: String
+        get() = prefs.getString(KEY_OVERLAY_POSITION, "TOP") ?: "TOP"
+        set(value) = prefs.edit().putString(KEY_OVERLAY_POSITION, value).apply()
+
+    var wingArcOffsetY: Int
+        get() = prefs.getInt(KEY_WING_ARC_OFFSET_Y, 0)
+        set(value) = prefs.edit().putInt(KEY_WING_ARC_OFFSET_Y, value).apply()
+
+    var wingArcSizeDp: Int
+        get() = prefs.getInt(KEY_WING_ARC_SIZE_DP, 76)
+        set(value) = prefs.edit().putInt(KEY_WING_ARC_SIZE_DP, value).apply()
+
+    var sanctuaryAmbianceEffect: String
+        get() = prefs.getString(KEY_SANCTUARY_AMBIANCE_EFFECT, "OFF") ?: "OFF"
+        set(value) = prefs.edit().putString(KEY_SANCTUARY_AMBIANCE_EFFECT, value).apply()
+
+    var hasCustomFriendOrder: Boolean
+        get() = prefs.getBoolean("has_custom_friend_order", false)
+        set(value) = prefs.edit().putBoolean("has_custom_friend_order", value).apply()
 }

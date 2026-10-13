@@ -2,9 +2,91 @@
 
 All notable changes to this project will be documented in this file.
 
-## [V.3] — 2026-10-08
+## [V.5] — 2026-10-12
+
+### 🌟 Highlights & Features
+- **New In-App Logo ("Mystical Candle Shrine in Midnight Blue")**:
+  - Fully replaced the old green dragon placeholder with custom high-resolution artwork (`ic_app_logo.png`).
+  - Seamlessly bound to the Home Screen top header (42dp circle) and Settings Screen "About LumaNest" card (28dp circle).
+- **"Emoji Timers Only" In-Game Mode**:
+  - Minimalist floating display at top center with zero progress bars or arcs.
+  - Active event reverse countdown: tracks remaining stay in reverse (e.g. `👵 10:00 -> 00:00`).
+  - Multi-event overlap: displays active events and upcoming events side-by-side (e.g. `👵 04:30 left  ·  🐢 in 05:00`).
+  - Strict 5-minute cap: upcoming events will never display earlier than 5 minutes before start.
+  - Auto-dismissing badges: badges vanish cleanly the second an event ends.
+- **3-Segment On-Screen Style Selector in Settings**:
+  - Compact single-row segmented control: `[ 🕊️ Wing Arc ]  [ ⏱️ Emoji Timers ]  [ 📏 Bottom ]`.
+  - Contextual preview actions: "Wing Arc" opens the live alignment tool; "Emoji Timers" and "Bottom" provide dedicated 10-second test previews.
+- **DEC-005 Golden Rule Implementation**:
+  - Enforced dynamic version resolution from Gradle (`AppUpdater.getInstalledVersionName(context)`).
+  - Completely eliminated hardcoded version numbers in UI and updater checks, fixing false "New Update Available" alerts on updated devices.
+- **Official App Version Bump**:
+  - Upgraded codebase and configs uniformly to **V.5** (`versionCode = 5`).
+- **💎 Custom Crystal Shard PNG Emojis**:
+  - Replaced flat colored circle emojis (`🔴` / `⚫`) with custom high-resolution PNG artworks:
+    - **Red Shards**: `Glowing Ruby Crystal Shard Cluster.png` (`emoji_shard_red.png`)
+    - **Black Shards**: `Obsidian Crystal Trio in Shadow.png` (`emoji_shard_black.png`)
+  - Integrated with the **Home Screen** Hero card title, Next Event preview, and Today's Schedule rows.
+  - Implemented inline `ImageSpan` rendering for in-game floating overlay countdowns and `Emoji Timers` so crystal clusters display smoothly right on screen while playing Sky.
+- **🕯️ Sanctuary Ambiance ("✨ Starlight Drift" & "Sky Paper Lanterns")**:
+  - Renamed from "Aero Shards" to **"✨ Starlight Drift"** for a cozy, peaceful aesthetic.
+  - **Multi-Screen Stream**: Starlight Drift ambient luminous crystals now flow smoothly across **Home**, **Calendar**, and **Settings** tabs.
+  - **Friends Tab "Sky Paper Lanterns"**: Authentic floating Sky Wish Lanterns (9 serene lanterns across the screen) with translucent glowing parchment and warm candle flames flickering inside, gently ascending and swaying in the night breeze.
+  - **3-Layer Performance & Battery Shield**: Automatically freezes to 0% CPU and 0% battery when minimized or screen locked. Controlled via master toggle in Settings.
+- **📳 Tactile Haptic Vibration Feedback**:
+  - Added subtle, satisfying haptic clicks (`CLOCK_TICK`) across all toggles, switches, and style selectors in Settings (12h/24h toggle, Event Reminders master switch, individual event notifications, Quiet Hours switch, Live Event Progress Bar switch, On-Screen style selector, countdown duration pills, and Starlight Drift toggle).
+  - Added gentle haptic feedback during friend card dragging and swapping.
+- **🕒 Chronological Friends Ordering (Option 1)**:
+  - Friend timezone cards are now sorted chronologically by current local time (00:00 to 23:59 earliest to latest).
+  - **"You" in Sequence**: The user's own local time card is now placed naturally in its chronological spot rather than pinned to the top.
+  - **Drag-to-Reorder Preserved**: Users can still hold and drag cards to custom positions at any time, with a convenient "🕒 Sort Time" pill to revert back to chronological order whenever desired.
+- **🍎 macOS-Style Interactive Dock Navigation**:
+  - Replaced standard bottom navigation with a floating frosted glass capsule dock.
+  - **Launch Bounce / Hop**: Icons joyfully hop and rebound with macOS spring physics upon being tapped.
+  - **Smooth Magnification & Indicator Dot**: Active tab magnifies smoothly with a glowing amber indicator dot underneath.
+  - Full badge support preserving the in-app GitHub update badge ("1") on Settings.
+- **🐛 Bug Fix — Double Treasure Candles Event**:
+  - Removed unverified `double_candles_autumn_2026` event from the seed database (`events_seed.json`), resolving false "RUNNING" badges on the Calendar and Upcoming cards on Home Screen.
+
+## [V.4] — 2026-10-09
+
+### 🌟 Highlights & Features
+- **100% Accurate Shard Eruption Engine**:
+  - Fully integrated Plutoy's verified `sky-shards.pages.dev` rotation algorithm into `SkyEventEngine.kt`.
+  - Fixed realm rotation drift using exact `(dayOfMonth - 1) % 5` indexing.
+  - Implemented exact Red vs. Black pattern determination:
+    - Red Shard cycles: 07:40, 02:20, and 03:30 Pacific Time (6h intervals).
+    - Black Shard cycles: 01:50 and 02:10 Pacific Time (8h intervals).
+  - Exact 3-window daily recurrence with +8m 40s gate landing offsets and 4-hour active windows.
+  - Calibrated exact realm and sub-area locations (e.g. *Crab Field*, *Ice Rink*, *Starlight Desert*, *Sanctuary Island*, *Forgotten Ark*).
+  - Accurate Ascended Candle rewards (✦ ~2.0 to ~3.5 AC) for Red Shards and standard wax for Black Shards.
+  - Strict "No Shard Day" weekday rules.
+- **Next Event & Live Countdown Home Screen Widget**:
+  - Built with Jetpack Compose Glance, adapting across all launcher grid sizes (compact 2x1 pill to large 4x2+ banners).
+  - Displays high-resolution 4:5 community watercolor PNG artworks (**Geyser**, **Grandma**, **Turtle**, **Shards**) in medium and large widget sizes.
+  - Strict real-time focus: Tracks live wax events (Geyser, Grandma, Turtle) and Shard Eruptions; excludes Daily Reset and Traveling Spirit.
+  - Live countdown timers (`Active now XX:XX left` / `Starts in XXm XXs`) with one-tap quick launch into LumaNest.
+- **Top Header Time Pill Polish (Option A)**:
+  - Replaced crowded side-by-side time and city text with a clean, centered two-line stack:
+    - Bold amber local time on top.
+    - Clean city/region beneath with single-line constraint to prevent text wrapping.
+- **Settings Update Badge ("1")**:
+  - Embedded a glowing amber notification badge on the bottom navigation Settings icon when an app update is available on GitHub.
+- **Official App Version Bump**:
+  - Upgraded codebase and configs uniformly to **V.4** (`versionCode = 4`).
+
+## [V.3] — 2026-10-09
 
 ### 🌟 Highlights & Polish
+- **Event Reminders & Smart Notification System**:
+  - Full Android `AlarmManager` exact background scheduling for Sky daily events (**Polluted Geyser**, **Grandma's Dinner**, **Sanctuary Turtle**, **Shard Eruptions**, and **Daily Reset**).
+  - Configurable reminder window (**5 min**, **10 min**, or **15 min before**) with individual event toggles in Settings.
+  - **Smart In-Game Silence Rule**: Notifications are automatically silenced while playing Sky with the Floating Countdown active to prevent disruptive popups.
+  - **Quiet Hours Protected**: Reminders strictly respect user-defined Quiet Hours (e.g. night sleep window).
+  - Runtime `POST_NOTIFICATIONS` permission prompt for Android 13+ (API 33+).
+- **Official Production App Icon Everywhere**:
+  - Replaced default Android Studio robot placeholders with custom high-resolution adaptive vector/webp icons across all screen densities (`mdpi` through `xxxhdpi`) and `anydpi-v26`.
+  - Icon now displays properly across system App Info, Installed App List, and Home launchers.
 - **Home Screen Top Card Gradient Fix**:
   - Replaced the harsh 85dp bottom black box with a smooth, seamless multi-stop vertical vignette gradient (`0% -> 35% -> 60% -> 85%`).
   - Light watercolor paintings (**Polluted Geyser**, **Grandma's Dinner**, and **Sanctuary Turtle**) now blend cleanly into the card border with zero abrupt cut lines.

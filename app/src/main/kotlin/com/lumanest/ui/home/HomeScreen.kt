@@ -15,13 +15,18 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import com.lumanest.eventengine.SkyEventEngine
 import com.lumanest.models.EventOccurrence
 import com.lumanest.models.Friend
@@ -30,6 +35,7 @@ import com.lumanest.ui.theme.*
 import kotlinx.coroutines.delay
 import java.time.ZoneId
 
+
 @Composable
 fun HomeScreen(
     calendarEvents: List<com.lumanest.models.SkyEvent> = emptyList(),
@@ -37,17 +43,37 @@ fun HomeScreen(
     is24Hour: Boolean,
     onToggleFavorite: (String, Boolean) -> Unit
 ) {
-    // 1-second UI countdown ticker
+    // Lifecycle-aware 1-second countdown ticker.
+    // Uses repeatOnLifecycle(STARTED) so it automatically resumes whenever the app
+    // comes back to foreground — fixing the disappearing progress bar bug.
     var currentMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(1000)
-            currentMillis = System.currentTimeMillis()
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                currentMillis = System.currentTimeMillis()
+                delay(1000)
+            }
         }
     }
 
+
     val context = androidx.compose.ui.platform.LocalContext.current
     val prefs = remember { com.lumanest.data.local.PreferencesManager(context) }
+
+    // Sanctuary Ambiance background effect state (refreshes on resume)
+    var sanctuaryAmbianceEffect by remember { mutableStateOf(prefs.sanctuaryAmbianceEffect) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                sanctuaryAmbianceEffect = prefs.sanctuaryAmbianceEffect
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     // Customizable Event Visibility State (Persisted in SharedPreferences)
     var showGeyser by remember { mutableStateOf(prefs.filterGeyser) }
@@ -108,7 +134,9 @@ fun HomeScreen(
             .take(3)
     }
 
-    LazyColumn(
+    val showAeroShards = sanctuaryAmbianceEffect == "STARLIGHT_DRIFT" || sanctuaryAmbianceEffect == "AERO_SHARDS"
+
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(
@@ -116,9 +144,17 @@ fun HomeScreen(
                     colors = listOf(Color(0xFF0F172A), DeepMidnight, Color(0xFF090D14))
                 )
             )
-            .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        if (showAeroShards) {
+            com.lumanest.ui.components.AeroShardsBackground()
+        }
+
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
         // 1. Top App Header
         item {
             Spacer(modifier = Modifier.height(8.dp))
@@ -281,6 +317,16 @@ fun HomeScreen(
                     else -> Color.White to StarlightBlue
                 }
 
+                val artDrawableRes = when {
+                    calEvent.id.contains("pearl", ignoreCase = true) || calEvent.name.contains("Pearl", ignoreCase = true) ->
+                        com.lumanest.app.R.drawable.art_season_pearl
+                    calEvent.id.contains("mischief", ignoreCase = true) || calEvent.name.contains("Mischief", ignoreCase = true) ->
+                        com.lumanest.app.R.drawable.art_days_mischief
+                    calEvent.category == com.lumanest.models.EventCategory.TRAVELING_SPIRIT ->
+                        com.lumanest.app.R.drawable.art_traveling_spirit
+                    else -> null
+                }
+
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
@@ -289,38 +335,65 @@ fun HomeScreen(
                         brush = androidx.compose.ui.graphics.SolidColor(CardBorder)
                     )
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = tagBgColor
-                        ) {
-                            Text(
-                                text = calEvent.category.name.replace('_', ' '),
-                                color = tagTextColor,
-                                style = MaterialTheme.typography.labelSmall,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                fontWeight = FontWeight.Bold
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        if (artDrawableRes != null) {
+                            androidx.compose.foundation.Image(
+                                painter = androidx.compose.ui.res.painterResource(id = artDrawableRes),
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .blur(radius = 3.dp)
+                                    .graphicsLayer { alpha = 0.80f },
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .background(
+                                        Brush.horizontalGradient(
+                                            colors = listOf(
+                                                NightSurface.copy(alpha = 0.92f),
+                                                NightSurface.copy(alpha = 0.55f),
+                                                Color.Black.copy(alpha = 0.15f)
+                                            )
+                                        )
+                                    )
                             )
                         }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = calEvent.name,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = if (calEvent.category == com.lumanest.models.EventCategory.SEASON) Color(0xFFFB923C) else DogFluffWhite,
-                                fontWeight = FontWeight.SemiBold,
-                                maxLines = 1
-                            )
-                            Text(
-                                text = "Starts: $startDateStr",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MutedSlate
-                            )
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = tagBgColor
+                            ) {
+                                Text(
+                                    text = calEvent.category.name.replace('_', ' '),
+                                    color = tagTextColor,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = calEvent.name,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = if (calEvent.category == com.lumanest.models.EventCategory.SEASON) Color(0xFFFB923C) else DogFluffWhite,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1
+                                )
+                                Text(
+                                    text = "Starts: $startDateStr",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MutedSlate
+                                )
+                            }
                         }
                     }
                 }
@@ -330,6 +403,7 @@ fun HomeScreen(
         item {
             Spacer(modifier = Modifier.height(32.dp))
         }
+    }
     }
 
     // Modal Sheet for Customizing which events to see
@@ -447,29 +521,64 @@ fun TopHeaderBar(userZoneId: ZoneId, is24Hour: Boolean) {
             }
         }
 
-        // Time indicator pill
+        // Time indicator pill (Option A: Clean two-line stack)
         Surface(
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(14.dp),
             color = NightSurfaceVariant,
-            modifier = Modifier.padding(2.dp)
+            modifier = Modifier.padding(start = 8.dp)
         ) {
-            Row(
+            Column(
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
+                horizontalAlignment = Alignment.End
             ) {
                 Text(
                     text = TimezoneHelper.getCurrentTimeFormatted(userZoneId, is24Hour),
-                    style = MaterialTheme.typography.titleSmall,
+                    style = MaterialTheme.typography.titleMedium,
                     color = CozyWarmAmber,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    softWrap = false
                 )
-                Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = userZoneId.id.substringAfterLast('/'),
+                    text = userZoneId.id.substringAfterLast('/').replace('_', ' '),
                     style = MaterialTheme.typography.labelSmall,
-                    color = MutedSlate
+                    color = MutedSlate,
+                    maxLines = 1,
+                    softWrap = false
                 )
             }
+        }
+    }
+}
+
+@Composable
+fun EventEmojiIcon(
+    eventId: String,
+    modifier: Modifier = Modifier,
+    size: androidx.compose.ui.unit.Dp = 24.dp,
+    fallbackEmoji: String = "✨"
+) {
+    when (eventId) {
+        "daily_shard_red" -> {
+            androidx.compose.foundation.Image(
+                painter = androidx.compose.ui.res.painterResource(id = com.lumanest.app.R.drawable.emoji_shard_red),
+                contentDescription = "Red Shard",
+                modifier = modifier.size(size)
+            )
+        }
+        "daily_shard_black" -> {
+            androidx.compose.foundation.Image(
+                painter = androidx.compose.ui.res.painterResource(id = com.lumanest.app.R.drawable.emoji_shard_black),
+                contentDescription = "Black Shard",
+                modifier = modifier.size(size)
+            )
+        }
+        else -> {
+            Text(
+                text = fallbackEmoji,
+                fontSize = (size.value * 0.95f).sp,
+                modifier = modifier
+            )
         }
     }
 }
@@ -487,8 +596,8 @@ fun HeroEventCard(
         "daily_turtle" -> "🐢"
         "daily_geyser" -> "🌋"
         "daily_grandma" -> "👵"
-        "daily_shard_red" -> "🔴"
-        "daily_shard_black" -> "⚫"
+        "daily_shard_red" -> "💎"
+        "daily_shard_black" -> "🖤"
         "daily_ts_reveal" -> "🎭"
         else -> "✨"
     }
@@ -596,34 +705,61 @@ fun HeroEventCard(
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                // Title & Description (Crystal clear with drop shadow)
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = occurrence.event.name,
-                        style = MaterialTheme.typography.headlineSmall.copy(shadow = textShadow),
-                        color = Color.White,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
+                // Title and Location (Realm + Area stacked cleanly on top-left)
+                val (heroTitle, heroRealm, heroArea) = when (occurrence.event.id) {
+                    "daily_geyser" -> Triple("Polluted Geyser", "Daylight Prairie", "Sanctuary Islands")
+                    "daily_grandma" -> Triple("Grandma's Dinner", "Hidden Forest", "Elevated Clearing")
+                    "daily_turtle" -> Triple("Sanctuary Turtle", "Daylight Prairie", "Sanctuary Islands")
+                    "daily_shard_red" -> {
+                        val parts = occurrence.event.name.split(" • ")
+                        val title = parts.getOrNull(0) ?: "Red Shard"
+                        val realm = parts.getOrNull(1) ?: ""
+                        val area = parts.getOrNull(2) ?: ""
+                        Triple(title, realm, area)
+                    }
+                    "daily_shard_black" -> {
+                        val parts = occurrence.event.name.split(" • ")
+                        val title = parts.getOrNull(0) ?: "Black Shard"
+                        val realm = parts.getOrNull(1) ?: ""
+                        val area = parts.getOrNull(2) ?: ""
+                        Triple(title, realm, area)
+                    }
+                    else -> Triple(occurrence.event.name, "", "")
+                }
 
-                    val formattedDescription = when (occurrence.event.id) {
-                        "daily_geyser" -> "Erupts dark wax every\n2 hours in Sanctuary Islands."
-                        "daily_grandma" -> "Belonging Elder bakes\nwarm light buns in Hidden Forest."
-                        "daily_turtle" -> "Sunset swimming turtle\nshedding light shells in Sanctuary."
-                        "daily_shard_red" -> "Strong Red Shard eruption\nRewards Ascended Candles."
-                        "daily_shard_black" -> "Regular Black Shard eruption\nRewards regular wax."
-                        else -> occurrence.event.description
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (occurrence.event.id == "daily_shard_red" || occurrence.event.id == "daily_shard_black") {
+                            EventEmojiIcon(occurrence.event.id, size = 32.dp)
+                            Spacer(modifier = Modifier.width(10.dp))
+                        }
+                        Text(
+                            text = heroTitle,
+                            style = MaterialTheme.typography.headlineMedium.copy(shadow = textShadow),
+                            color = Color.White,
+                            fontWeight = FontWeight.ExtraBold
+                        )
                     }
 
-                    Text(
-                        text = formattedDescription,
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            shadow = textShadow,
-                            lineHeight = 16.sp
-                        ),
-                        color = Color.White.copy(alpha = 0.95f),
-                        fontWeight = FontWeight.Medium
-                    )
+                    if (heroRealm.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = heroRealm,
+                            style = MaterialTheme.typography.titleSmall.copy(shadow = textShadow),
+                            color = CozyWarmAmber,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    if (heroArea.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(1.dp))
+                        Text(
+                            text = heroArea,
+                            style = MaterialTheme.typography.bodyMedium.copy(shadow = textShadow),
+                            color = Color(0xFFE2E8F0),
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(38.dp))
@@ -728,8 +864,8 @@ fun NextEventPreviewCard(
         "daily_geyser" -> "🌋"
         "daily_turtle" -> "🐢"
         "daily_grandma" -> "👵"
-        "daily_shard_red" -> "🔴"
-        "daily_shard_black" -> "⚫"
+        "daily_shard_red" -> "💎"
+        "daily_shard_black" -> "🖤"
         "daily_reset" -> "🌅"
         "daily_ts_reveal" -> "🎭"
         else -> "🕯"
@@ -749,7 +885,11 @@ fun NextEventPreviewCard(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = iconEmoji, fontSize = 24.sp)
+            EventEmojiIcon(
+                eventId = occurrence.event.id,
+                size = 28.dp,
+                fallbackEmoji = iconEmoji
+            )
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -792,8 +932,8 @@ fun ScheduleRowCard(
         "daily_turtle" -> "🐢"
         "daily_geyser" -> "🌋"
         "daily_grandma" -> "👵"
-        "daily_shard_red" -> "🔴"
-        "daily_shard_black" -> "⚫"
+        "daily_shard_red" -> "💎"
+        "daily_shard_black" -> "🖤"
         "daily_reset" -> "🌅"
         "daily_ts_reveal" -> "🎭"
         else -> "✨"
@@ -813,12 +953,35 @@ fun ScheduleRowCard(
                 .padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = iconEmoji, fontSize = 24.sp)
+            EventEmojiIcon(
+                eventId = occurrence.event.id,
+                size = 28.dp,
+                fallbackEmoji = iconEmoji
+            )
             Spacer(modifier = Modifier.width(12.dp))
+            val (rowTitle, rowLocation) = when (occurrence.event.id) {
+                "daily_geyser" -> Pair("Polluted Geyser", "Daylight Prairie • Sanctuary Islands")
+                "daily_grandma" -> Pair("Grandma's Dinner", "Hidden Forest • Elevated Clearing")
+                "daily_turtle" -> Pair("Sanctuary Turtle", "Daylight Prairie • Sanctuary Islands")
+                "daily_shard_red" -> {
+                    val parts = occurrence.event.name.split(" • ")
+                    val title = parts.getOrNull(0) ?: "Red Shard"
+                    val loc = if (parts.size >= 3) "${parts[1]} • ${parts[2]}" else parts.drop(1).joinToString(" • ")
+                    Pair(title, loc)
+                }
+                "daily_shard_black" -> {
+                    val parts = occurrence.event.name.split(" • ")
+                    val title = parts.getOrNull(0) ?: "Black Shard"
+                    val loc = if (parts.size >= 3) "${parts[1]} • ${parts[2]}" else parts.drop(1).joinToString(" • ")
+                    Pair(title, loc)
+                }
+                else -> Pair(occurrence.event.name, "")
+            }
+
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = occurrence.event.name,
+                        text = rowTitle,
                         style = MaterialTheme.typography.bodyMedium,
                         color = DogFluffWhite,
                         fontWeight = FontWeight.SemiBold
@@ -834,9 +997,9 @@ fun ScheduleRowCard(
                     }
                 }
                 Text(
-                    text = occurrence.event.description,
+                    text = if (rowLocation.isNotEmpty()) rowLocation else occurrence.event.description,
                     style = MaterialTheme.typography.labelSmall,
-                    color = MutedSlate,
+                    color = if (rowLocation.isNotEmpty()) CozyWarmAmber else MutedSlate,
                     maxLines = 1,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                 )

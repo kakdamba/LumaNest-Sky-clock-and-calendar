@@ -72,10 +72,24 @@ object AppUpdater {
         }
     }
 
+    fun getInstalledVersionName(context: Context): String {
+        return try {
+            val packageInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                context.packageManager.getPackageInfo(context.packageName, android.content.pm.PackageManager.PackageInfoFlags.of(0))
+            } else {
+                @Suppress("DEPRECATION")
+                context.packageManager.getPackageInfo(context.packageName, 0)
+            }
+            packageInfo.versionName ?: "V.4"
+        } catch (_: Exception) {
+            "V.4"
+        }
+    }
+
     private fun isNewerVersion(latest: String, current: String): Boolean {
         if (latest.isBlank()) return false
-        val cleanLatest = latest.removePrefix("v").removePrefix("V").trim()
-        val cleanCurrent = current.removePrefix("v").removePrefix("V").trim()
+        val cleanLatest = latest.trimStart('v', 'V', ' ')
+        val cleanCurrent = current.trimStart('v', 'V', ' ')
 
         val latestParts = cleanLatest.split(".").mapNotNull { it.toIntOrNull() }
         val currentParts = cleanCurrent.split(".").mapNotNull { it.toIntOrNull() }

@@ -14,6 +14,9 @@ interface EventDao {
     @Query("SELECT * FROM events WHERE isFavorite = 1")
     fun getFavoriteEvents(): Flow<List<EventEntity>>
 
+    @Query("SELECT * FROM events")
+    suspend fun getAllEventsSync(): List<EventEntity>
+
     @Query("SELECT * FROM events WHERE id = :id LIMIT 1")
     suspend fun getEventById(id: String): EventEntity?
 

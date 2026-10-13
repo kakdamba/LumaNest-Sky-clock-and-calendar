@@ -413,22 +413,20 @@ object SkyEventEngine {
 
     /**
      * Calculates Traveling Spirit official identity reveal timing:
-     * Officially revealed every Tuesday (12:00 PM PT, 12 hours after daily reset)
-     * prior to Thursday in-game arrival.
+     * Officially revealed every 2 weeks on Tuesday (11:30 AM PT) prior to Thursday arrival.
+     * Anchored to known TS reveal: Oct 6, 2026 at 11:30 AM PT (Talented Builder).
      */
-    private fun calculateTravelingSpiritReveal(nowPt: ZonedDateTime, nowEpoch: Long): EventOccurrence {
-        // Target: Tuesday at 11:30 AM - 12:00 PM PT (TGC official social post announcement)
-        var candidate = nowPt.with(java.time.DayOfWeek.TUESDAY)
-            .truncatedTo(ChronoUnit.DAYS)
-            .withHour(11)
-            .withMinute(30)
-            .withSecond(0)
-            .withNano(0)
+    private val TS_REVEAL_ANCHOR = ZonedDateTime.of(2026, 10, 6, 11, 30, 0, 0, TimezoneHelper.SKY_RESET_ZONE)
 
-        // Active reveal announcement window: 5 minutes max!
+    private fun calculateTravelingSpiritReveal(nowPt: ZonedDateTime, nowEpoch: Long): EventOccurrence {
+        val daysBetween = java.time.Duration.between(TS_REVEAL_ANCHOR, nowPt).toDays()
+        val cycles = if (daysBetween >= 0) daysBetween / 14 else (daysBetween / 14) - 1
+        var candidate = TS_REVEAL_ANCHOR.plusDays(cycles * 14)
+
+        // If candidate reveal window (+5 mins) has already passed, advance by 2 weeks (14 days)
         val candidateEnd = candidate.plusMinutes(5)
         if (candidateEnd.toInstant().toEpochMilli() <= nowEpoch) {
-            candidate = candidate.plusWeeks(2)
+            candidate = candidate.plusDays(14)
         }
 
         val startMillis = candidate.toInstant().toEpochMilli()

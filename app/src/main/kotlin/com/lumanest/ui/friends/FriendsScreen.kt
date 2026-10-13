@@ -37,6 +37,8 @@ import com.lumanest.models.Friend
 import com.lumanest.timezone.TimezoneEntry
 import com.lumanest.timezone.TimezoneHelper
 import com.lumanest.ui.theme.*
+import androidx.compose.ui.platform.LocalView
+import android.view.HapticFeedbackConstants
 import java.time.ZoneId
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -80,17 +82,37 @@ fun FriendsScreen(
         )
     }
 
-    // Database sync: keep local draggable state synchronized when DB emits unless actively dragging
     val currentList = remember { mutableStateListOf<Friend>() }
     var isDraggingActive by remember { mutableStateOf(false) }
 
-    LaunchedEffect(friends) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val view = LocalView.current
+    val prefs = remember { com.lumanest.data.local.PreferencesManager(context) }
+    var hasCustomOrder by remember { mutableStateOf(prefs.hasCustomFriendOrder) }
+    val showAntigravity = prefs.sanctuaryAmbianceEffect == "STARLIGHT_DRIFT" || prefs.sanctuaryAmbianceEffect == "AERO_SHARDS"
+
+    // Helper to calculate seconds of day for chronological sorting
+    fun getSecondOfDay(tzId: String): Int {
+        return try {
+            val zone = java.time.ZoneId.of(tzId)
+            java.time.Instant.ofEpochMilli(currentMillis).atZone(zone).toLocalTime().toSecondOfDay()
+        } catch (_: Exception) {
+            0
+        }
+    }
+
+    LaunchedEffect(friends, userZoneId, hasCustomOrder) {
         if (!isDraggingActive) {
             currentList.clear()
-            if (friends.isEmpty()) {
-                currentList.add(selfFriend)
+            val combined = (friends.filter { it.id != selfFriendId } + selfFriend)
+            if (hasCustomOrder) {
+                // Keep custom order (with selfFriend included)
+                val ordered = if (friends.any { it.id == selfFriendId }) friends else (friends + selfFriend)
+                currentList.addAll(ordered)
             } else {
-                currentList.addAll(friends)
+                // Option 1: Chronological sort by local time (earliest to latest 00:00 -> 23:59)
+                val sorted = combined.sortedBy { getSecondOfDay(it.timezoneId) }
+                currentList.addAll(sorted)
             }
         }
     }
@@ -102,7 +124,7 @@ fun FriendsScreen(
     val currentOnReorderFriends by rememberUpdatedState(onReorderFriends)
     val itemHeightPx = 220f
 
-    LazyColumn(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(
@@ -110,9 +132,17 @@ fun FriendsScreen(
                     colors = listOf(Color(0xFF0F172A), DeepMidnight, Color(0xFF090D14))
                 )
             )
-            .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+        if (showAntigravity) {
+            com.lumanest.ui.components.AntigravityField()
+        }
+
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
         // Header
         item {
             Spacer(modifier = Modifier.height(8.dp))
@@ -129,16 +159,47 @@ fun FriendsScreen(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Hold & drag to reorder • Double-tap to edit",
+                        text = if (hasCustomOrder) "Custom order • Drag to reorder" else "Chronological order (00:00 → 23:59)",
                         style = MaterialTheme.typography.bodySmall,
                         color = MutedSlate
                     )
                 }
 
-                Spacer(modifier = Modifier.width(12.dp))
+                if (hasCustomOrder) {
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Surface(
+                        onClick = {
+                            view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                            prefs.hasCustomFriendOrder = false
+                            hasCustomOrder = false
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        color = NightSurfaceVariant,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(text = "🕒", fontSize = 13.sp)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Sort Time",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = CozyWarmAmber,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(10.dp))
 
                 Button(
-                    onClick = { showAddDialog = true },
+                    onClick = {
+                        view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                        showAddDialog = true
+                    },
                     colors = ButtonDefaults.buttonColors(containerColor = CozyWarmAmber),
                     shape = RoundedCornerShape(14.dp),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
@@ -178,6 +239,7 @@ fun FriendsScreen(
                     .pointerInput(Unit) {
                         detectDragGesturesAfterLongPress(
                             onDragStart = {
+                                view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                                 isDraggingActive = true
                                 draggingIndex = index
                                 dragOffsetY = 0f
@@ -191,6 +253,7 @@ fun FriendsScreen(
                                 val targetIndex = (currentIndex + offsetSteps).coerceIn(0, currentList.lastIndex)
 
                                 if (targetIndex != currentIndex && targetIndex in 0..currentList.lastIndex) {
+                                    view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                                     val item = currentList.removeAt(currentIndex)
                                     currentList.add(targetIndex, item)
                                     draggingIndex = targetIndex
@@ -198,9 +261,12 @@ fun FriendsScreen(
                                 }
                             },
                             onDragEnd = {
+                                view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                                 isDraggingActive = false
                                 draggingIndex = null
                                 dragOffsetY = 0f
+                                prefs.hasCustomFriendOrder = true
+                                hasCustomOrder = true
                                 // Persist snapshot of entire reordered list directly to Room
                                 currentOnReorderFriends(currentList.toList())
                             },
@@ -232,6 +298,7 @@ fun FriendsScreen(
         item {
             Spacer(modifier = Modifier.height(32.dp))
         }
+    }
     }
 
     if (showAddDialog) {

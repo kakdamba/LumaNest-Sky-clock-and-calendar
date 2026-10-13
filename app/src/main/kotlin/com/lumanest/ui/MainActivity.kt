@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -51,9 +52,39 @@ class MainActivity : ComponentActivity() {
             com.lumanest.service.FloatingCountdownService.start(this)
         }
 
+        // Initialize notification channel and schedule alarms if enabled
+        if (prefs.notificationsEnabled) {
+            com.lumanest.notification.EventNotificationReceiver.scheduleNextAlarms(this)
+        }
+
+        // Request POST_NOTIFICATIONS permission on Android 13+ (API 33+)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            if (androidx.core.content.ContextCompat.checkSelfPermission(
+                    this,
+                    android.Manifest.permission.POST_NOTIFICATIONS
+                ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+            ) {
+                androidx.core.app.ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),
+                    101
+                )
+            }
+        }
+
         setContent {
             LumaNestTheme {
                 MainAppScaffold(repository = repository)
+            }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // DEC-002: Silent OTA Event Sync from remote GitHub feed whenever app opens or resumes
+        if (::repository.isInitialized) {
+            lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                repository.syncRemoteEvents()
             }
         }
     }
@@ -61,6 +92,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MainAppScaffold(repository: EventRepository) {
+    val context = LocalContext.current
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route ?: "home"
@@ -71,35 +103,29 @@ fun MainAppScaffold(repository: EventRepository) {
     val allEvents by repository.allEvents.collectAsState(initial = emptyList())
     val friends by repository.allFriends.collectAsState(initial = emptyList())
     val coroutineScope = rememberCoroutineScope()
+    var hasUpdateAvailable by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        try {
+            val currentVersion = com.lumanest.updater.AppUpdater.getInstalledVersionName(context)
+            val updateInfo = com.lumanest.updater.AppUpdater.checkForUpdate(currentVersion)
+            hasUpdateAvailable = updateInfo.hasUpdate
+        } catch (_: Exception) {}
+    }
 
     Scaffold(
         bottomBar = {
-            NavigationBar(containerColor = NightSurface) {
-                NavigationBarItem(
-                    selected = currentRoute == "home",
-                    onClick = { navController.navigate("home") { popUpTo("home") { inclusive = true } } },
-                    icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
-                    label = { Text("Home") }
-                )
-                NavigationBarItem(
-                    selected = currentRoute == "friends",
-                    onClick = { navController.navigate("friends") },
-                    icon = { Icon(Icons.Default.Person, contentDescription = "Friends") },
-                    label = { Text("Friends") }
-                )
-                NavigationBarItem(
-                    selected = currentRoute == "calendar",
-                    onClick = { navController.navigate("calendar") },
-                    icon = { Icon(Icons.Default.DateRange, contentDescription = "Calendar") },
-                    label = { Text("Calendar") }
-                )
-                NavigationBarItem(
-                    selected = currentRoute == "settings",
-                    onClick = { navController.navigate("settings") },
-                    icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
-                    label = { Text("Settings") }
-                )
-            }
+            com.lumanest.ui.components.MacDockNavigationBar(
+                currentRoute = currentRoute,
+                hasUpdateAvailable = hasUpdateAvailable,
+                onTabSelected = { route ->
+                    if (route == "home") {
+                        navController.navigate("home") { popUpTo("home") { inclusive = true } }
+                    } else {
+                        navController.navigate(route)
+                    }
+                }
+            )
         }
     ) { innerPadding ->
         NavHost(

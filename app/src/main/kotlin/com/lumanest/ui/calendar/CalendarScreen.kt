@@ -80,7 +80,10 @@ fun CalendarScreen(
         EventCategory.MAINTENANCE
     )
 
-    LazyColumn(
+    val prefs = remember { com.lumanest.data.local.PreferencesManager(context) }
+    val showAeroShards = prefs.sanctuaryAmbianceEffect == "STARLIGHT_DRIFT" || prefs.sanctuaryAmbianceEffect == "AERO_SHARDS"
+
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(
@@ -88,9 +91,17 @@ fun CalendarScreen(
                     colors = listOf(Color(0xFF0F172A), DeepMidnight, Color(0xFF090D14))
                 )
             )
-            .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        if (showAeroShards) {
+            com.lumanest.ui.components.AeroShardsBackground()
+        }
+
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
         item {
             Spacer(modifier = Modifier.height(8.dp))
             Row(
@@ -209,6 +220,7 @@ fun CalendarScreen(
         item {
             Spacer(modifier = Modifier.height(32.dp))
         }
+    }
     }
 }
 
