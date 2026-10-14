@@ -431,13 +431,8 @@ class FloatingCountdownService : Service() {
             val pillContainer = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER
-                setPadding((11 * density).toInt(), (4 * density).toInt(), (11 * density).toInt(), (4 * density).toInt())
-                val pillBg = android.graphics.drawable.GradientDrawable().apply {
-                    setColor(Color.parseColor("#E60B0F17")) // Deep cozy midnight
-                    cornerRadius = 14 * density
-                    setStroke((1 * density).toInt(), Color.parseColor("#60FFA51F")) // Warm subtle amber border
-                }
-                background = pillBg
+                setPadding((6 * density).toInt(), (2 * density).toInt(), (6 * density).toInt(), (2 * density).toInt())
+                background = null // Pure transparent container, no background box or border
             }
 
             tvClockText = TextView(this).apply {
@@ -446,7 +441,7 @@ class FloatingCountdownService : Service() {
                 textSize = 12f
                 typeface = android.graphics.Typeface.DEFAULT_BOLD
                 gravity = Gravity.CENTER
-                setShadowLayer(6f, 0f, 1f, Color.BLACK)
+                setShadowLayer(8f, 0f, 2f, Color.BLACK)
                 maxLines = 1
                 isSingleLine = true
             }
