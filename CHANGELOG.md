@@ -2,9 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
-## [V.5] — 2026-10-12
+## [V.5] — 2026-10-15
 
 ### 🌟 Highlights & Features
+- **📱 Home Screen Widget & Settings Polish Update**:
+  - **Auto-Refreshing Widgets (`WidgetSyncManager`)**: Exact alarms now trigger widget refreshes immediately at event start/end boundaries, eliminating frozen snapshots.
+  - **Wall-Clock Widget Time**: Clean format (`Ends at 03:30 PM` / `Starts at 04:35 PM`) replaces misleading static second counters.
+  - **Season Countdown Fix**: Accurately shows hours (e.g. `20 hours away`) instead of `0 days away` when a season is launching in `< 24 hours`.
+  - **Prominent Shard Icons**: Scaled Red & Black Shard crystal icons to 1.8x to match the bold presence of standard emojis in Today's Schedule.
+  - **Collapsible Notifications Dropdown**: Smooth accordion in Settings neatly tucks away individual event toggles to keep Settings compact.
+  - **Sanctuary Ambiance Header Cleanup**: Removed duplicate white title in Settings.
+  - **Dynamic Footer Version**: Settings footer and feedback email links dynamically display `LumaNest V.5`.
 - **New In-App Logo ("Mystical Candle Shrine in Midnight Blue")**:
   - Fully replaced the old green dragon placeholder with custom high-resolution artwork (`ic_app_logo.png`).
   - Seamlessly bound to the Home Screen top header (42dp circle) and Settings Screen "About LumaNest" card (28dp circle).

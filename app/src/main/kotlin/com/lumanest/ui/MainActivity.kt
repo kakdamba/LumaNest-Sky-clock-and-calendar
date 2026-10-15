@@ -81,12 +81,20 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        // DEC-002: Silent OTA Event Sync from remote GitHub feed whenever app opens or resumes
+        // Silent OTA Event Sync from remote GitHub feed whenever app opens or resumes
         if (::repository.isInitialized) {
             lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
                 repository.syncRemoteEvents()
             }
         }
+        com.lumanest.widget.WidgetSyncManager.refreshWidgets(this)
+        com.lumanest.widget.WidgetSyncManager.scheduleNextTransition(this)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        com.lumanest.widget.WidgetSyncManager.refreshWidgets(this)
+        com.lumanest.widget.WidgetSyncManager.scheduleNextTransition(this)
     }
 }
 

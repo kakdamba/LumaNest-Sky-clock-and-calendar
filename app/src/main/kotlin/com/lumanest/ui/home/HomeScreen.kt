@@ -558,19 +558,20 @@ fun EventEmojiIcon(
     size: androidx.compose.ui.unit.Dp = 24.dp,
     fallbackEmoji: String = "✨"
 ) {
+    val shardSize = size * 1.8f
     when (eventId) {
         "daily_shard_red" -> {
             androidx.compose.foundation.Image(
                 painter = androidx.compose.ui.res.painterResource(id = com.lumanest.app.R.drawable.emoji_shard_red),
                 contentDescription = "Red Shard",
-                modifier = modifier.size(size)
+                modifier = modifier.size(shardSize)
             )
         }
         "daily_shard_black" -> {
             androidx.compose.foundation.Image(
                 painter = androidx.compose.ui.res.painterResource(id = com.lumanest.app.R.drawable.emoji_shard_black),
                 contentDescription = "Black Shard",
-                modifier = modifier.size(size)
+                modifier = modifier.size(shardSize)
             )
         }
         else -> {

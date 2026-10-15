@@ -86,21 +86,13 @@ abstract class BaseEventGlanceWidget(private val isCard2x2: Boolean) : GlanceApp
                 // 2. Seamless Text with Drop Shadow
                 if (targetOccurrence != null) {
                     val isActive = targetOccurrence.isActiveNow
-                    val remainingSecs = if (isActive) {
-                        targetOccurrence.millisRemaining / 1000
-                    } else {
-                        targetOccurrence.millisUntilStart / 1000
-                    }
-                    val mm = (remainingSecs % 3600) / 60
-                    val ss = remainingSecs % 60
-                    val hh = remainingSecs / 3600
+                    val userZone = com.lumanest.timezone.TimezoneHelper.getDeviceZoneId()
+                    val is24H = android.text.format.DateFormat.is24HourFormat(context)
 
-                    val timeFormatted = if (hh > 0) {
-                        "${hh}h ${mm}m"
-                    } else if (mm > 0) {
-                        "${mm}m ${if (ss < 10) "0$ss" else "$ss"}s"
+                    val timeFormatted = if (isActive) {
+                        "Ends at " + com.lumanest.timezone.TimezoneHelper.formatEpochForZone(targetOccurrence.endEpochMillis, userZone, is24H)
                     } else {
-                        "${ss}s"
+                        "Starts at " + com.lumanest.timezone.TimezoneHelper.formatEpochForZone(targetOccurrence.startEpochMillis, userZone, is24H)
                     }
 
                     val statusBadgeText = if (isActive) "HAPPENING NOW" else "UPCOMING"
@@ -171,7 +163,7 @@ abstract class BaseEventGlanceWidget(private val isCard2x2: Boolean) : GlanceApp
                             }
                             Spacer(modifier = GlanceModifier.height(2.dp))
                             ShadowedText(
-                                text = if (isActive) "⏳ $timeFormatted left" else "⏰ in $timeFormatted",
+                                text = if (isActive) "⏳ $timeFormatted" else "⏰ $timeFormatted",
                                 textColor = Color(0xFFFFA51F),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
@@ -237,7 +229,7 @@ abstract class BaseEventGlanceWidget(private val isCard2x2: Boolean) : GlanceApp
                             Spacer(modifier = GlanceModifier.height(3.dp))
 
                             ShadowedText(
-                                text = if (isActive) "⏳ $timeFormatted left" else "⏰ in $timeFormatted",
+                                text = if (isActive) "⏳ $timeFormatted" else "⏰ $timeFormatted",
                                 textColor = Color(0xFFFFA51F),
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,

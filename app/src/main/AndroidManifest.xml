@@ -48,16 +48,63 @@
             </intent-filter>
         </activity>
 
+        <!-- 1. LumaNest Events (Banner 4x2) -->
         <receiver
-            android:name=".widget.LumaNestWidgetReceiver"
+            android:name="com.lumanest.widget.EventBannerWidgetReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
-                android:resource="@xml/lumanest_widget_info" />
+                android:resource="@xml/widget_event_banner_info" />
         </receiver>
+
+        <!-- 2. LumaNest Events (Card 2x2) -->
+        <receiver
+            android:name="com.lumanest.widget.EventCardWidgetReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_event_card_info" />
+        </receiver>
+
+        <!-- 3. LumaNest Season (Banner 4x2) -->
+        <receiver
+            android:name="com.lumanest.widget.SeasonBannerWidgetReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_season_banner_info" />
+        </receiver>
+
+        <!-- 4. LumaNest Season (Card 2x2) -->
+        <receiver
+            android:name="com.lumanest.widget.SeasonCardWidgetReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_season_card_info" />
+        </receiver>
+
+
+
+        <receiver
+            android:name="com.lumanest.notification.EventNotificationReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name="com.lumanest.widget.WidgetUpdateReceiver"
+            android:exported="false" />
     </application>
 
 </manifest>

@@ -17,3 +17,4 @@ app/build/
 core/models/build/
 core/timezone/build/
 core/eventengine/build/
+*.apk

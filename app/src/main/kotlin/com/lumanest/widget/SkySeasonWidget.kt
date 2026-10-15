@@ -106,7 +106,15 @@ abstract class BaseSeasonGlanceWidget(private val isCard2x2: Boolean) : GlanceAp
                 if (target != null) {
                     val isActive = now in target.startMillis..target.endMillis
                     val msRemaining = if (isActive) target.endMillis - now else target.startMillis - now
-                    val daysRemaining = (msRemaining / (1000 * 60 * 60 * 24)).coerceAtLeast(0)
+                    val totalHoursRemaining = (msRemaining / (1000 * 60 * 60)).coerceAtLeast(0)
+                    val daysRemaining = totalHoursRemaining / 24
+                    val totalMinutesRemaining = (msRemaining / (1000 * 60)).coerceAtLeast(0)
+
+                    val (countNumber, countLabel) = when {
+                        daysRemaining > 0 -> "$daysRemaining" to (if (isActive) "days left" else "days away")
+                        totalHoursRemaining > 0 -> "$totalHoursRemaining" to (if (isActive) "hours left" else "hours away")
+                        else -> "${maxOf(1L, totalMinutesRemaining)}" to (if (isActive) "mins left" else "mins away")
+                    }
 
                     val dateFmt = DateTimeFormatter.ofPattern("MMM d").withZone(ZoneId.of("UTC"))
                     val startStr = dateFmt.format(Instant.ofEpochMilli(target.startMillis))
@@ -151,16 +159,16 @@ abstract class BaseSeasonGlanceWidget(private val isCard2x2: Boolean) : GlanceAp
 
                             Row(verticalAlignment = Alignment.Bottom) {
                                 ShadowedText(
-                                    text = "$daysRemaining",
+                                    text = countNumber,
                                     textColor = Color(0xFFF5EFE5),
-                                    fontSize = 32.sp,
+                                    fontSize = if (countNumber.length > 2) 26.sp else 32.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Spacer(modifier = GlanceModifier.width(6.dp))
                                 Column(verticalAlignment = Alignment.Bottom) {
                                     Spacer(modifier = GlanceModifier.height(14.dp))
                                     ShadowedText(
-                                        text = if (isActive) "days left" else "days away",
+                                        text = countLabel,
                                         textColor = Color(0xFFFFA51F),
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold
@@ -206,16 +214,16 @@ abstract class BaseSeasonGlanceWidget(private val isCard2x2: Boolean) : GlanceAp
 
                             Row(verticalAlignment = Alignment.Bottom) {
                                 ShadowedText(
-                                    text = "$daysRemaining",
+                                    text = countNumber,
                                     textColor = Color(0xFFF5EFE5),
-                                    fontSize = 46.sp,
+                                    fontSize = if (countNumber.length > 2) 38.sp else 46.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Spacer(modifier = GlanceModifier.width(8.dp))
                                 Column(verticalAlignment = Alignment.Bottom) {
                                     Spacer(modifier = GlanceModifier.height(24.dp))
                                     ShadowedText(
-                                        text = if (isActive) "days left" else "days away",
+                                        text = countLabel,
                                         textColor = Color(0xFFFFA51F),
                                         fontSize = 15.sp,
                                         fontWeight = FontWeight.Bold

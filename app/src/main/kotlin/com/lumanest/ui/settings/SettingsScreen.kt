@@ -60,6 +60,18 @@ fun SettingsScreen(
     var notifyShards by remember { mutableStateOf(prefs.notifyShards) }
     var notifyReset by remember { mutableStateOf(prefs.notifyReset) }
     var sanctuaryAmbianceEffect by remember { mutableStateOf(prefs.sanctuaryAmbianceEffect) }
+    var isEventsDropdownExpanded by remember { mutableStateOf(false) }
+
+    val currentVersionName = remember {
+        com.lumanest.updater.AppUpdater.getInstalledVersionName(context)
+    }
+    val displayVersion = remember(currentVersionName) {
+        if (currentVersionName.startsWith("V.", ignoreCase = true) || currentVersionName.startsWith("v", ignoreCase = true)) {
+            "LumaNest $currentVersionName"
+        } else {
+            "LumaNest V.$currentVersionName"
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -263,13 +275,47 @@ fun SettingsScreen(
                         }
 
                         Spacer(modifier = Modifier.height(14.dp))
-                        Text(
-                            text = "SELECT EVENTS TO TRACK",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = CozyWarmAmber,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Expandable Dropdown Header
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = NightSurfaceVariant,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable {
+                                    performHaptic()
+                                    isEventsDropdownExpanded = !isEventsDropdownExpanded
+                                }
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Tracked Events Options",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = DogFluffWhite,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        text = if (isEventsDropdownExpanded) "Tap to collapse options" else "Tap to choose which events notify you",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MutedSlate
+                                    )
+                                }
+                                Text(
+                                    text = if (isEventsDropdownExpanded) "▲" else "▼",
+                                    color = CozyWarmAmber,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
 
                         @Composable
                         fun EventReminderRow(
@@ -321,45 +367,61 @@ fun SettingsScreen(
                             }
                         }
 
-                        EventReminderRow(
-                            emoji = "♨️",
-                            title = "Polluted Geyser",
-                            subtitle = "Every 2 hours at XX:05 PT",
-                            checked = notifyGeyser,
-                            onToggle = { notifyGeyser = it; prefs.notifyGeyser = it }
-                        )
+                        androidx.compose.animation.AnimatedVisibility(
+                            visible = isEventsDropdownExpanded,
+                            enter = androidx.compose.animation.expandVertically() + androidx.compose.animation.fadeIn(),
+                            exit = androidx.compose.animation.shrinkVertically() + androidx.compose.animation.fadeOut()
+                        ) {
+                            Column(modifier = Modifier.padding(top = 10.dp)) {
+                                Text(
+                                    text = "SELECT EVENTS TO TRACK",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = CozyWarmAmber,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
 
-                        EventReminderRow(
-                            emoji = "🍞",
-                            title = "Grandma's Dinner",
-                            subtitle = "Every 2 hours at XX:35 PT",
-                            checked = notifyGrandma,
-                            onToggle = { notifyGrandma = it; prefs.notifyGrandma = it }
-                        )
+                                EventReminderRow(
+                                    emoji = "♨️",
+                                    title = "Polluted Geyser",
+                                    subtitle = "Every 2 hours at XX:05 PT",
+                                    checked = notifyGeyser,
+                                    onToggle = { notifyGeyser = it; prefs.notifyGeyser = it }
+                                )
 
-                        EventReminderRow(
-                            emoji = "🐢",
-                            title = "Sanctuary Turtle",
-                            subtitle = "Every 2 hours at XX:50 PT",
-                            checked = notifyTurtle,
-                            onToggle = { notifyTurtle = it; prefs.notifyTurtle = it }
-                        )
+                                EventReminderRow(
+                                    emoji = "🍞",
+                                    title = "Grandma's Dinner",
+                                    subtitle = "Every 2 hours at XX:35 PT",
+                                    checked = notifyGrandma,
+                                    onToggle = { notifyGrandma = it; prefs.notifyGrandma = it }
+                                )
 
-                        EventReminderRow(
-                            emoji = "🌋",
-                            title = "Shard Eruptions",
-                            subtitle = "Red & Black shard falling windows",
-                            checked = notifyShards,
-                            onToggle = { notifyShards = it; prefs.notifyShards = it }
-                        )
+                                EventReminderRow(
+                                    emoji = "🐢",
+                                    title = "Sanctuary Turtle",
+                                    subtitle = "Every 2 hours at XX:50 PT",
+                                    checked = notifyTurtle,
+                                    onToggle = { notifyTurtle = it; prefs.notifyTurtle = it }
+                                )
 
-                        EventReminderRow(
-                            emoji = "🌅",
-                            title = "Daily Reset",
-                            subtitle = "00:00 PT Sky server daily reset",
-                            checked = notifyReset,
-                            onToggle = { notifyReset = it; prefs.notifyReset = it }
-                        )
+                                EventReminderRow(
+                                    emoji = "🌋",
+                                    title = "Shard Eruptions",
+                                    subtitle = "Red & Black shard falling windows",
+                                    checked = notifyShards,
+                                    onToggle = { notifyShards = it; prefs.notifyShards = it }
+                                )
+
+                                EventReminderRow(
+                                    emoji = "🌅",
+                                    title = "Daily Reset",
+                                    subtitle = "00:00 PT Sky server daily reset",
+                                    checked = notifyReset,
+                                    onToggle = { notifyReset = it; prefs.notifyReset = it }
+                                )
+                            }
+                        }
 
                         Spacer(modifier = Modifier.height(10.dp))
                         Surface(
@@ -863,12 +925,6 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(10.dp))
 
                     Text(
-                        text = "Sanctuary Ambiance",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = DogFluffWhite,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(
                         text = "Off by default to maximize battery saver. Select Starlight Drift to enjoy gentle luminous crystal shards flowing across your screens.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MutedSlate
@@ -956,9 +1012,6 @@ fun SettingsScreen(
 
         // 5. In-App GitHub Updater Card
         item {
-            val currentVersionName = remember {
-                com.lumanest.updater.AppUpdater.getInstalledVersionName(context)
-            }
             var updateInfo by remember { mutableStateOf<com.lumanest.updater.AppUpdateInfo?>(null) }
             var isChecking by remember { mutableStateOf(false) }
             val coroutineScope = rememberCoroutineScope()
@@ -1236,8 +1289,8 @@ fun SettingsScreen(
                                 try {
                                     val emailIntent = android.content.Intent(android.content.Intent.ACTION_SENDTO).apply {
                                         data = android.net.Uri.parse("mailto:yin-fade-clamshell@duck.com")
-                                        putExtra(android.content.Intent.EXTRA_SUBJECT, "[LumaNest V.2] Bug Report / Issue")
-                                        putExtra(android.content.Intent.EXTRA_TEXT, "Hello,\n\nI encountered the following issue in LumaNest V.2:\n\n[Please describe the issue here]\n\nDevice info: Android")
+                                        putExtra(android.content.Intent.EXTRA_SUBJECT, "[$displayVersion] Bug Report / Issue")
+                                        putExtra(android.content.Intent.EXTRA_TEXT, "Hello,\n\nI encountered the following issue in $displayVersion:\n\n[Please describe the issue here]\n\nDevice info: Android")
                                     }
                                     context.startActivity(android.content.Intent.createChooser(emailIntent, "Send Bug Report"))
                                 } catch (_: Exception) {
@@ -1260,8 +1313,8 @@ fun SettingsScreen(
                                 try {
                                     val emailIntent = android.content.Intent(android.content.Intent.ACTION_SENDTO).apply {
                                         data = android.net.Uri.parse("mailto:yin-fade-clamshell@duck.com")
-                                        putExtra(android.content.Intent.EXTRA_SUBJECT, "[LumaNest V.2] Feature Suggestion")
-                                        putExtra(android.content.Intent.EXTRA_TEXT, "Hello,\n\nI would like to suggest a feature for LumaNest V.2:\n\n[Describe your idea here]")
+                                        putExtra(android.content.Intent.EXTRA_SUBJECT, "[$displayVersion] Feature Suggestion")
+                                        putExtra(android.content.Intent.EXTRA_TEXT, "Hello,\n\nI would like to suggest a feature for $displayVersion:\n\n[Describe your idea here]")
                                     }
                                     context.startActivity(android.content.Intent.createChooser(emailIntent, "Send Feature Suggestion"))
                                 } catch (_: Exception) {
@@ -1305,7 +1358,7 @@ fun SettingsScreen(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = "LumaNest V.3",
+                            text = displayVersion,
                             style = MaterialTheme.typography.labelMedium,
                             color = CozyWarmAmber,
                             fontWeight = FontWeight.Bold
