@@ -5,9 +5,9 @@
   # LumaNest 🌌
   ### *Your cozy, offline-first companion for Sky: Children of the Light*
 
-  [![Latest Release](https://img.shields.io/github/v/release/kakdamba/LumaNest-Sky-clock-and-calendar?style=for-the-badge&color=FFA51F&label=Latest%20APK)](https://github.com/kakdamba/LumaNest-Sky-clock-and-calendar/releases/latest)
-  [![Platform](https://img.shields.io/badge/Platform-Android-34D399?style=for-the-badge&logo=android&logoColor=white)](https://android.com)
-  [![Language](https://img.shields.io/badge/Kotlin-2.0+-7C3AED?style=for-the-badge&logo=kotlin&logoColor=white)](https://kotlinlang.org)
+  [![Latest Release](https://img.shields.io/github/v/release/kakdamba/LumaNest-Sky-clock-and-calendar?style=for-the-badge&color=FFA51F&label=Latest%20Release)](https://github.com/kakdamba/LumaNest-Sky-clock-and-calendar/releases/latest)
+  [![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20Windows%20PC-34D399?style=for-the-badge&logo=android&logoColor=white)](https://github.com/kakdamba/LumaNest-Sky-clock-and-calendar)
+  [![Compose Multiplatform](https://img.shields.io/badge/Compose-Multiplatform-7C3AED?style=for-the-badge&logo=jetpackcompose&logoColor=white)](https://www.jetbrains.com/lp/compose-multiplatform/)
   [![License](https://img.shields.io/badge/License-MIT-38BDF8?style=for-the-badge)](LICENSE)
 
   <br />
@@ -22,7 +22,7 @@
 
 ## 📖 About LumaNest
 
-**LumaNest** is an unofficial, standalone Android companion app crafted with love for players of **Sky: Children of the Light**. 
+**LumaNest** is an unofficial, standalone companion app crafted with love for players of **Sky: Children of the Light** on **Android and Windows PC**. 
 
 Built with a cozy dark midnight aesthetic and watercolor artwork, LumaNest brings all in-game timing systems, shard eruption calculations, multi-realm calendars, and friend timezones together into a single, offline-first experience—with zero ads, zero accounts, and zero tracking.
 
@@ -43,22 +43,23 @@ Built with a cozy dark midnight aesthetic and watercolor artwork, LumaNest bring
 ### 🎨 Ambient Calendar & Big Events
 * **Cinematic Event Cards:** Upcoming seasons and festivals (like *Season of Pearl* and *Days of Mischief*) feature ambient frosted-glass artwork backdrops with smooth glowing gradients.
 * **Verified Accuracy:** All big events are strictly cross-referenced against official TGC announcements, the SkyDreamers Notion Calendar, and Sky-Planner.
-* **Cloud OTA Sync (Over-The-Air):** The app silently syncs newly revealed Traveling Spirits and official event dates on app open—zero APK updates required!
+* **Cloud OTA Sync (Over-The-Air):** The app silently syncs newly revealed Traveling Spirits and official event dates on app open—zero manual updates required!
 
 ### 🌍 Friend Timezones Across the World
-* **Global Sky Coordination:** Add friends with their country flags and timezones to see their local time instantly compared to Sky Standard Time.
-* **Custom Ordering:** Drag, re-order, and manage your friend cards seamlessly.
+* **Global Sky Coordination:** Add friends with their country flags and timezones to see their local wall-clock time instantly compared to your own and Sky Standard Time.
+* **Vector Country Flag Badges:** Crisp, colorful country badges across 32+ global timezones.
+* **Custom Ordering:** Re-order and manage your friend cards seamlessly.
 
-### 📱 Sky Running Mode & Glance Widgets
-* **Minimal Floating Countdown:** Enable floating overlay mode to track timers while playing Sky inside the game.
+### 📱 In-Game Floating Timers & Android Widgets
+* **Live In-Game Overlay:** Enable floating overlay mode to track timers while playing Sky directly on your phone or PC (supporting Wing Arc meter, wall-to-wall bottom bar, and floating emoji timers with automatic game detection).
 * **Clean Emoji Timers:** Minimal, borderless floating emojis with deep drop shadows that float cleanly over the game without obstructing your view.
-* **Home Screen Widgets:** Place beautiful Jetpack Glance widgets on your Android launcher for next-event alerts and seasonal countdowns.
+* **Android Home Screen Widgets:** Place beautiful Jetpack Glance widgets on your Android launcher for next-event alerts and seasonal countdowns.
 
 ---
 
 ## 🔒 Offline-First & Privacy by Design
 
-* **100% Local Storage:** All custom friend names, timezones, and favorites live exclusively in your local SQLite/Room database.
+* **100% Local Storage:** All custom friend names, timezones, and preferences live exclusively on your local device (Room DB on Android, private user directory on PC).
 * **Zero Tracking:** No analytics SDKs, no user accounts, no telemetry, and no advertisements.
 * **Graceful Offline Mode:** Never crashes or freezes without internet—works completely offline.
 
@@ -66,9 +67,10 @@ Built with a cozy dark midnight aesthetic and watercolor artwork, LumaNest bring
 
 ## 📥 Download & Installation
 
-1. Head over to the **[Latest Releases](https://github.com/kakdamba/LumaNest-Sky-clock-and-calendar/releases/latest)** page.
-2. Download the latest `LumaNest-V.X.apk`.
-3. Open the downloaded file on your Android device and tap **Install** *(ensure "Install from unknown sources" is enabled in your browser)*.
+Head over to the **[Latest Releases](https://github.com/kakdamba/LumaNest-Sky-clock-and-calendar/releases/latest)** page and choose your platform:
+
+* 📱 **Android:** Download the latest `LumaNest-V.6.apk` and tap **Install** *(ensure "Install from unknown sources" is enabled in your browser)*.
+* 💻 **Windows PC:** Download `LumaNest-PC-v6-Setup.exe` and run the installer (standalone setup, zero prerequisites, bundled 64-bit runtime, desktop shortcut included).
 
 ---
 
@@ -77,12 +79,12 @@ Built with a cozy dark midnight aesthetic and watercolor artwork, LumaNest bring
 | Layer | Technology |
 | :--- | :--- |
 | **Language** | Kotlin 2.0+ with Coroutines & Flow |
-| **UI Framework** | Jetpack Compose & Material 3 |
-| **Database** | Room DB (SQLite) |
-| **Widgets** | Jetpack Glance (AppWidget) |
+| **UI Framework** | Jetpack Compose & Compose Multiplatform (Material 3) |
+| **Platforms** | Android 8.0+ (API 26+) & Windows 10 / 11 (64-bit) |
 | **Time Engine** | `java.time` (JSR-310) pegged to `America/Los_Angeles` (PST/PDT) |
-| **Minimum SDK** | Android 8.0 (API 26) |
-| **Target SDK** | Android 15 (API 35) |
+| **Data Storage** | SQLite / Room DB (Android) & JSON storage (PC) |
+| **Desktop Integrations** | Win32 JNA User32 game window detection & Inno Setup |
+| **Android Widgets** | Jetpack Glance (AppWidget) |
 
 ---
 
