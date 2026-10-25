@@ -6,7 +6,7 @@
   ### *Your cozy, offline-first companion for Sky: Children of the Light*
 
   [![Latest Release](https://img.shields.io/github/v/release/kakdamba/LumaNest-Sky-clock-and-calendar?style=for-the-badge&color=FFA51F&label=Latest%20Release)](https://github.com/kakdamba/LumaNest-Sky-clock-and-calendar/releases/latest)
-  [![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20Windows%20PC-34D399?style=for-the-badge&logo=android&logoColor=white)](https://github.com/kakdamba/LumaNest-Sky-clock-and-calendar)
+  [![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20Windows%20PC-34D399?style=for-the-badge&logo=android&logoColor=white)](https://github.com/kakdamba/LumaNest-Sky-clock-and-calendar/releases/latest)
   [![Compose Multiplatform](https://img.shields.io/badge/Compose-Multiplatform-7C3AED?style=for-the-badge&logo=jetpackcompose&logoColor=white)](https://www.jetbrains.com/lp/compose-multiplatform/)
   [![License](https://img.shields.io/badge/License-MIT-38BDF8?style=for-the-badge)](LICENSE)
 
