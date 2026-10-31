@@ -1,8 +1,22 @@
 {
-  "version": "2026.10.22",
+  "version": "2026.11.01",
   "schemaVersion": 1,
-  "generatedAt": "2026-10-22T07:00:00Z",
+  "generatedAt": "2026-11-01T08:00:00Z",
   "events": [
+    {
+      "id": "traveling_spirit_hairtousle_teen_2026",
+      "name": "Traveling Spirit: Hairtousle Teen",
+      "description": "TGC-announced Traveling Spirit visiting Home & Aviary from November 5 to 8, 2026, with limited-time cosmetics.",
+      "category": "TRAVELING_SPIRIT",
+      "startIso": "2026-11-05T08:00:00Z",
+      "endIso": "2026-11-09T07:59:59Z",
+      "timezone": "America/Los_Angeles",
+      "status": "CONFIRMED_TGC",
+      "source": "Thatgamecompany",
+      "sourceUrl": "https://www.thatskygame.com/",
+      "lastVerified": "2026-11-01",
+      "isFavorite": true
+    },
     {
       "id": "traveling_spirit_scarecrow_farmer_2026",
       "name": "Traveling Spirit: Scarecrow Farmer",
