@@ -1,6 +1,7 @@
 package com.lumanest.ui.home
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -9,14 +10,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.outlined.StarOutline
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -88,9 +89,46 @@ fun HomeScreen(
         SkyEventEngine.calculateDailyOccurrences(currentMillis)
     }
 
+    val extraOccurrences = remember(currentMillis, calendarEvents) {
+        val staticExtras = overlayTravelingSpiritNames(
+            SkyEventEngine.calculateExtraActivities(currentMillis),
+            calendarEvents
+        )
+        // Also include active or upcoming Double Seasonal Light & Double Treasure Candles from calendar database
+        val doubleCurrencyExtras = calendarEvents.filter {
+            it.category == com.lumanest.models.EventCategory.DOUBLE_CURRENCY
+        }.mapNotNull { event ->
+            try {
+                val start = java.time.Instant.parse(event.startIso).toEpochMilli()
+                val end = java.time.Instant.parse(event.endIso).toEpochMilli()
+                if (currentMillis < end) {
+                    val isActive = currentMillis in start..end
+                    com.lumanest.models.EventOccurrence(
+                        event = event,
+                        startEpochMillis = start,
+                        endEpochMillis = end,
+                        isActiveNow = isActive,
+                        millisUntilStart = if (isActive) 0L else (start - currentMillis).coerceAtLeast(0L),
+                        millisRemaining = if (isActive) (end - currentMillis).coerceAtLeast(0L) else 0L
+                    )
+                } else null
+            } catch (_: Exception) {
+                null
+            }
+        }
+        (staticExtras + doubleCurrencyExtras).sortedWith(
+            compareByDescending<EventOccurrence> { it.isActiveNow }
+                .thenBy { it.millisUntilStart }
+        )
+    }
+    var isExtraActivitiesExpanded by remember { mutableStateOf(false) }
+
     // Filter occurrences based on user preferences and sort chronologically (active first, then closest start)
-    val dailyOccurrences = remember(rawDailyOccurrences, showGeyser, showGrandma, showTurtle, showShards, showReset, showTsReveal) {
-        rawDailyOccurrences
+    val tsNamedOccurrences = remember(rawDailyOccurrences, calendarEvents) {
+        overlayTravelingSpiritNames(rawDailyOccurrences, calendarEvents)
+    }
+    val dailyOccurrences = remember(tsNamedOccurrences, showGeyser, showGrandma, showTurtle, showShards, showReset, showTsReveal) {
+        tsNamedOccurrences
             .filter { occ ->
                 when (occ.event.id) {
                     "daily_geyser" -> showGeyser
@@ -99,6 +137,7 @@ fun HomeScreen(
                     "daily_shard_red", "daily_shard_black" -> showShards
                     "daily_reset" -> showReset
                     "daily_ts_reveal" -> showTsReveal && (occ.isActiveNow || occ.millisUntilStart <= 24 * 3600 * 1000L)
+                    "extra_traveling_spirit" -> occ.isActiveNow || occ.millisUntilStart <= 48 * 3600 * 1000L
                     else -> true
                 }
             }
@@ -109,28 +148,48 @@ fun HomeScreen(
     }
 
     // Determine current active event or next upcoming event
-    val activeEvent = remember(dailyOccurrences) {
-        dailyOccurrences.firstOrNull { it.isActiveNow }
+    // User rule: Traveling Spirit is shown in the top Big Hero Card for the first 30 minutes of arrival.
+    // Afterwards, it steps aside so regular wax/shard events get the Hero spotlight, while TS stays in Today's Schedule.
+    val activeEvent = remember(dailyOccurrences, currentMillis) {
+        dailyOccurrences.firstOrNull { occ ->
+            if (!occ.isActiveNow) return@firstOrNull false
+            if (occ.event.id == "extra_traveling_spirit") {
+                val elapsedSinceArrival = currentMillis - occ.startEpochMillis
+                elapsedSinceArrival in 0..(30 * 60 * 1000L)
+            } else {
+                true
+            }
+        }
     }
     val nextEvent = remember(dailyOccurrences, activeEvent) {
+        val upcomingOnly = dailyOccurrences.filter { !it.isActiveNow }
         if (activeEvent != null) {
-            dailyOccurrences.filter { !it.isActiveNow }.minByOrNull { it.millisUntilStart }
+            upcomingOnly.minByOrNull { it.millisUntilStart }
         } else {
-            dailyOccurrences.minByOrNull { it.millisUntilStart }
+            val regularUpcoming = upcomingOnly.filter { it.event.id != "extra_traveling_spirit" }
+            regularUpcoming.minByOrNull { it.millisUntilStart } ?: upcomingOnly.minByOrNull { it.millisUntilStart }
         }
     }
 
-    // Top 3 Upcoming Calendar Events (excluding Shard eruptions which live on their own schedule)
+    // Top 3 Active & Upcoming Calendar Events (excluding Shard eruptions and Double Currency bonuses)
     val topUpcomingCalendarEvents = remember(calendarEvents) {
         val now = System.currentTimeMillis()
         calendarEvents
             .filter { e ->
                 e.category != com.lumanest.models.EventCategory.SHARD_ERUPTION &&
+                e.category != com.lumanest.models.EventCategory.DOUBLE_CURRENCY &&
                 try { java.time.Instant.parse(e.endIso).toEpochMilli() >= now } catch (_: Exception) { false }
             }
-            .sortedBy { e ->
-                try { java.time.Instant.parse(e.startIso).toEpochMilli() } catch (_: Exception) { Long.MAX_VALUE }
-            }
+            .sortedWith(
+                compareBy<com.lumanest.models.SkyEvent> { e ->
+                    val startEpoch = try { java.time.Instant.parse(e.startIso).toEpochMilli() } catch (_: Exception) { 0L }
+                    val endEpoch = try { java.time.Instant.parse(e.endIso).toEpochMilli() } catch (_: Exception) { Long.MAX_VALUE }
+                    val isActive = now in startEpoch..endEpoch
+                    if (isActive) 0 else 1
+                }.thenBy { e ->
+                    try { java.time.Instant.parse(e.startIso).toEpochMilli() } catch (_: Exception) { Long.MAX_VALUE }
+                }
+            )
             .take(3)
     }
 
@@ -277,6 +336,17 @@ fun HomeScreen(
             }
         }
 
+        // 4b. Collapsible More Activities & Shows
+        item {
+            ExtraActivitiesDropdownCard(
+                occurrences = extraOccurrences,
+                isExpanded = isExtraActivitiesExpanded,
+                onToggleExpand = { isExtraActivitiesExpanded = !isExtraActivitiesExpanded },
+                userZoneId = userZoneId,
+                is24Hour = is24Hour
+            )
+        }
+
         // 5. Top 3 Upcoming Calendar Events (Replaces Play Together)
         if (topUpcomingCalendarEvents.isNotEmpty()) {
             item {
@@ -302,26 +372,42 @@ fun HomeScreen(
             }
 
             items(topUpcomingCalendarEvents, key = { it.id }) { calEvent ->
-                val startDateStr = try {
-                    val epoch = java.time.Instant.parse(calEvent.startIso).toEpochMilli()
-                    TimezoneHelper.formatEpochDateForZone(epoch, userZoneId)
-                } catch (_: Exception) { calEvent.startIso }
+                // Read the ticker state so countdowns / ACTIVE NOW badges refresh
+                // every second (they used to freeze until an unrelated recomposition).
+                val nowMillis = currentMillis
+                val startEpoch = try { java.time.Instant.parse(calEvent.startIso).toEpochMilli() } catch (_: Exception) { 0L }
+                val endEpoch = try { java.time.Instant.parse(calEvent.endIso).toEpochMilli() } catch (_: Exception) { Long.MAX_VALUE }
+                val isCurrentlyActive = nowMillis in startEpoch..endEpoch
 
-                val (tagTextColor, tagBgColor) = when (calEvent.category) {
-                    com.lumanest.models.EventCategory.SEASON -> Color.White to Color(0xFFEA580C)
-                    com.lumanest.models.EventCategory.DOUBLE_CURRENCY -> Color.White to Color(0xFFDC2626)
-                    com.lumanest.models.EventCategory.TRAVELING_SPIRIT -> Color.White to Color(0xFF0284C7)
-                    com.lumanest.models.EventCategory.MAJOR_EVENT -> Color.White to Color(0xFF9333EA)
-                    com.lumanest.models.EventCategory.SHARD_ERUPTION -> Color.White to Color(0xFFE11D48)
-                    com.lumanest.models.EventCategory.MAINTENANCE -> Color.White to Color(0xFFD97706)
+                val startDateStr = try {
+                    TimezoneHelper.formatEpochDateForZone(startEpoch, userZoneId)
+                } catch (_: Exception) { calEvent.startIso }
+                val endDateStr = try {
+                    TimezoneHelper.formatEpochDateForZone(endEpoch, userZoneId)
+                } catch (_: Exception) { calEvent.endIso }
+
+                val (tagTextColor, tagBgColor) = when {
+                    isCurrentlyActive -> Color.White to Color(0xFF16A34A)
+                    calEvent.category == com.lumanest.models.EventCategory.SEASON -> Color.White to Color(0xFFEA580C)
+                    calEvent.category == com.lumanest.models.EventCategory.DOUBLE_CURRENCY -> Color.White to Color(0xFFDC2626)
+                    calEvent.category == com.lumanest.models.EventCategory.TRAVELING_SPIRIT -> Color.White to Color(0xFF0284C7)
+                    calEvent.category == com.lumanest.models.EventCategory.MAJOR_EVENT -> Color.White to Color(0xFF9333EA)
+                    calEvent.category == com.lumanest.models.EventCategory.SHARD_ERUPTION -> Color.White to Color(0xFFE11D48)
+                    calEvent.category == com.lumanest.models.EventCategory.MAINTENANCE -> Color.White to Color(0xFFD97706)
                     else -> Color.White to StarlightBlue
                 }
 
                 val artDrawableRes = when {
+                    calEvent.id.contains("returning_spirit", ignoreCase = true) || calEvent.name.contains("Returning", ignoreCase = true) ->
+                        com.lumanest.app.R.drawable.art_returning_spirit_group_nov
+                    calEvent.id.contains("dancing_performer", ignoreCase = true) || calEvent.name.contains("Dancing Performer", ignoreCase = true) ->
+                        com.lumanest.app.R.drawable.art_dancing_performer
                     calEvent.id.contains("pearl", ignoreCase = true) || calEvent.name.contains("Pearl", ignoreCase = true) ->
                         com.lumanest.app.R.drawable.art_season_pearl
                     calEvent.id.contains("mischief", ignoreCase = true) || calEvent.name.contains("Mischief", ignoreCase = true) ->
                         com.lumanest.app.R.drawable.art_days_mischief
+                    calEvent.id.contains("double_hearts", ignoreCase = true) || calEvent.category == com.lumanest.models.EventCategory.DOUBLE_CURRENCY ->
+                        com.lumanest.app.R.drawable.art_double_candles
                     calEvent.category == com.lumanest.models.EventCategory.TRAVELING_SPIRIT ->
                         com.lumanest.app.R.drawable.art_traveling_spirit
                     else -> null
@@ -332,18 +418,19 @@ fun HomeScreen(
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = NightSurface),
                     border = CardDefaults.outlinedCardBorder().copy(
-                        brush = androidx.compose.ui.graphics.SolidColor(CardBorder)
+                        brush = androidx.compose.ui.graphics.SolidColor(if (isCurrentlyActive) Color(0xFF16A34A).copy(alpha = 0.6f) else CardBorder)
                     )
                 ) {
                     Box(modifier = Modifier.fillMaxWidth()) {
                         if (artDrawableRes != null) {
+                            // DEC-008: Visual Contract - locked at 1.dp blur + 0.85 alpha + 94%->65%->20% scrim
                             androidx.compose.foundation.Image(
                                 painter = androidx.compose.ui.res.painterResource(id = artDrawableRes),
                                 contentDescription = null,
                                 modifier = Modifier
                                     .matchParentSize()
-                                    .blur(radius = 3.dp)
-                                    .graphicsLayer { alpha = 0.80f },
+                                    .blur(radius = 1.dp)
+                                    .graphicsLayer { alpha = 0.85f },
                                 contentScale = androidx.compose.ui.layout.ContentScale.Crop
                             )
                             Box(
@@ -352,9 +439,9 @@ fun HomeScreen(
                                     .background(
                                         Brush.horizontalGradient(
                                             colors = listOf(
-                                                NightSurface.copy(alpha = 0.92f),
-                                                NightSurface.copy(alpha = 0.55f),
-                                                Color.Black.copy(alpha = 0.15f)
+                                                NightSurface.copy(alpha = 0.94f),
+                                                NightSurface.copy(alpha = 0.65f),
+                                                NightSurface.copy(alpha = 0.20f)
                                             )
                                         )
                                     )
@@ -372,7 +459,7 @@ fun HomeScreen(
                                 color = tagBgColor
                             ) {
                                 Text(
-                                    text = calEvent.category.name.replace('_', ' '),
+                                    text = if (isCurrentlyActive) "● ACTIVE NOW" else calEvent.category.name.replace('_', ' '),
                                     color = tagTextColor,
                                     style = MaterialTheme.typography.labelSmall,
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
@@ -389,9 +476,13 @@ fun HomeScreen(
                                     maxLines = 1
                                 )
                                 Text(
-                                    text = "Starts: $startDateStr",
+                                    text = if (isCurrentlyActive) {
+                                        "Ends: $endDateStr (${formatExtraCountdown(endEpoch - nowMillis)} left)"
+                                    } else {
+                                        "Starts: $startDateStr (in ${formatExtraCountdown(startEpoch - nowMillis)})"
+                                    },
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MutedSlate
+                                    color = if (isCurrentlyActive) Color(0xFF4ADE80) else MutedSlate
                                 )
                             }
                         }
@@ -444,10 +535,6 @@ fun HomeScreen(
                     EventToggleRow(label = "☄️ Shard Eruptions", checked = showShards, onCheckedChange = {
                         showShards = it
                         prefs.filterShards = it
-                    })
-                    EventToggleRow(label = "🌅 Sky Daily Reset", checked = showReset, onCheckedChange = {
-                        showReset = it
-                        prefs.filterReset = it
                     })
                     EventToggleRow(label = "🎭 Traveling Spirit Reveal", checked = showTsReveal, onCheckedChange = {
                         showTsReveal = it
@@ -610,6 +697,7 @@ fun HeroEventCard(
         "daily_shard_red" -> com.lumanest.app.R.drawable.art_shard_red
         "daily_shard_black" -> com.lumanest.app.R.drawable.art_shard_black
         "daily_ts_reveal" -> com.lumanest.app.R.drawable.art_traveling_spirit
+        "extra_traveling_spirit" -> com.lumanest.app.R.drawable.art_traveling_spirit
         else -> null
     }
 
@@ -670,7 +758,7 @@ fun HeroEventCard(
                 // Header Row: Status Badge & Favorite (Shifted right to the top)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.Start,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // Dark Frosted Pill Badge with vibrant colored border & text
@@ -686,21 +774,6 @@ fun HeroEventCard(
                             fontWeight = FontWeight.ExtraBold,
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                         )
-                    }
-
-                    Surface(
-                        shape = CircleShape,
-                        color = Color.Black.copy(alpha = 0.40f)
-                    ) {
-                        IconButton(
-                            onClick = { onToggleFavorite(occurrence.event.id, occurrence.event.isFavorite) }
-                        ) {
-                            Icon(
-                                imageVector = if (occurrence.event.isFavorite) Icons.Default.Star else Icons.Outlined.StarOutline,
-                                contentDescription = "Favorite",
-                                tint = if (occurrence.event.isFavorite) CozyWarmAmber else Color.White
-                            )
-                        }
                     }
                 }
 
@@ -729,18 +802,12 @@ fun HeroEventCard(
                 }
 
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (occurrence.event.id == "daily_shard_red" || occurrence.event.id == "daily_shard_black") {
-                            EventEmojiIcon(occurrence.event.id, size = 32.dp)
-                            Spacer(modifier = Modifier.width(10.dp))
-                        }
-                        Text(
-                            text = heroTitle,
-                            style = MaterialTheme.typography.headlineMedium.copy(shadow = textShadow),
-                            color = Color.White,
-                            fontWeight = FontWeight.ExtraBold
-                        )
-                    }
+                    Text(
+                        text = heroTitle,
+                        style = MaterialTheme.typography.headlineMedium.copy(shadow = textShadow),
+                        color = Color.White,
+                        fontWeight = FontWeight.ExtraBold
+                    )
 
                     if (heroRealm.isNotEmpty()) {
                         Spacer(modifier = Modifier.height(2.dp))
@@ -937,6 +1004,7 @@ fun ScheduleRowCard(
         "daily_shard_black" -> "🖤"
         "daily_reset" -> "🌅"
         "daily_ts_reveal" -> "🎭"
+        "extra_traveling_spirit" -> "🧭"
         else -> "✨"
     }
 
@@ -976,6 +1044,10 @@ fun ScheduleRowCard(
                     val loc = if (parts.size >= 3) "${parts[1]} • ${parts[2]}" else parts.drop(1).joinToString(" • ")
                     Pair(title, loc)
                 }
+                "extra_traveling_spirit" -> Pair(
+                    occurrence.event.name,
+                    "Home & Aviary Village • 4-Day Visit"
+                )
                 else -> Pair(occurrence.event.name, "")
             }
 
@@ -1020,8 +1092,17 @@ fun ScheduleRowCard(
                     maxLines = 1,
                     softWrap = false
                 )
+                val countdownText = if (occurrence.isActiveNow) {
+                    if (occurrence.millisRemaining > 3600 * 1000L) {
+                        "${formatExtraCountdown(occurrence.millisRemaining)} left"
+                    } else {
+                        "Happening"
+                    }
+                } else {
+                    formatCountdown(occurrence.millisUntilStart)
+                }
                 Text(
-                    text = if (occurrence.isActiveNow) "Happening" else formatCountdown(occurrence.millisUntilStart),
+                    text = countdownText,
                     style = MaterialTheme.typography.labelSmall,
                     color = if (occurrence.isActiveNow) Color(0xFF4ADE80) else StarlightBlue,
                     maxLines = 1,
@@ -1095,3 +1176,312 @@ fun formatCountdown(millis: Long): String {
         String.format("%02d:%02d", minutes, seconds)
     }
 }
+
+/**
+ * Overlays verified Traveling Spirit names/descriptions from the OTA feed (Room DB)
+ * onto the engine's deterministic bi-weekly TS occurrence. The engine intentionally
+ * stays generic — the feed is the single source of truth for who is actually
+ * visiting. If no feed entry overlaps the window (not pushed yet / offline),
+ * the generic "Traveling Spirit" name is kept.
+ */
+fun overlayTravelingSpiritNames(
+    occurrences: List<EventOccurrence>,
+    calendarEvents: List<com.lumanest.models.SkyEvent>
+): List<EventOccurrence> = occurrences.map { occ ->
+    if (occ.event.id != "extra_traveling_spirit") {
+        occ
+    } else {
+        val dbTs = calendarEvents.firstOrNull { e ->
+            e.category == com.lumanest.models.EventCategory.TRAVELING_SPIRIT && try {
+                val s = java.time.Instant.parse(e.startIso).toEpochMilli()
+                val en = java.time.Instant.parse(e.endIso).toEpochMilli()
+                s <= occ.endEpochMillis && en >= occ.startEpochMillis
+            } catch (_: Exception) {
+                false
+            }
+        }
+        if (dbTs != null) {
+            occ.copy(event = occ.event.copy(name = dbTs.name, description = dbTs.description))
+        } else {
+            occ
+        }
+    }
+}
+
+@Composable
+fun ExtraActivitiesDropdownCard(
+    occurrences: List<EventOccurrence>,
+    isExpanded: Boolean,
+    onToggleExpand: () -> Unit,
+    userZoneId: ZoneId,
+    is24Hour: Boolean
+) {
+    val activeCount = occurrences.count { it.isActiveNow }
+    val rotationAngle by animateFloatAsState(
+        targetValue = if (isExpanded) 180f else 0f,
+        label = "chevronRotation"
+    )
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .clickable { onToggleExpand() },
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isExpanded) NightSurface else NightSurfaceVariant.copy(alpha = 0.7f)
+        ),
+        border = CardDefaults.outlinedCardBorder().copy(
+            brush = androidx.compose.ui.graphics.SolidColor(
+                if (isExpanded) CozyWarmAmber.copy(alpha = 0.4f) else CardBorder
+            )
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp)
+        ) {
+            // Header row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(if (activeCount > 0) Color(0xFF14532D) else DeepMidnight),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(text = "🌌", fontSize = 18.sp)
+                    }
+
+                    Spacer(modifier = Modifier.width(10.dp))
+
+                    Column {
+                        Text(
+                            text = "More Activities & Shows",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = DogFluffWhite,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = if (isExpanded) "Tap to collapse" else "Skater, Passage, Nest Sunset, Aurora & more",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MutedSlate,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        )
+                    }
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (activeCount > 0) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFF14532D)
+                        ) {
+                            Text(
+                                text = "● $activeCount Active",
+                                color = Color(0xFF4ADE80),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(6.dp))
+                    } else {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = DeepMidnight.copy(alpha = 0.6f)
+                        ) {
+                            Text(
+                                text = "${occurrences.size}",
+                                color = CozyWarmAmber,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(6.dp))
+                    }
+
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowDown,
+                        contentDescription = if (isExpanded) "Collapse" else "Expand",
+                        tint = CozyWarmAmber,
+                        modifier = Modifier.rotate(rotationAngle)
+                    )
+                }
+            }
+
+            AnimatedVisibility(visible = isExpanded) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    HorizontalDivider(
+                        color = CardBorder.copy(alpha = 0.5f),
+                        thickness = 1.dp,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+
+                    occurrences.forEach { occ ->
+                        ExtraActivityRowItem(
+                            occurrence = occ,
+                            userZoneId = userZoneId,
+                            is24Hour = is24Hour
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ExtraActivityRowItem(
+    occurrence: EventOccurrence,
+    userZoneId: ZoneId,
+    is24Hour: Boolean
+) {
+    val (emoji, title, locationText) = when {
+        occurrence.event.id == "daily_reset" -> Triple("🌅", "Daily Reset", "Sky Clock • Daily at 00:00 PT")
+        occurrence.event.id == "extra_traveling_spirit" -> Triple("🧭", occurrence.event.name, "Home & Aviary • Every 2 weeks (Thu–Sun)")
+        occurrence.event.id == "extra_dreams_skater" -> Triple("⛸️", "Dreams Skater", "Village of Dreams • Fri–Sun every 2h")
+        occurrence.event.id == "extra_passage_quests" -> Triple("📜", "Passage Quests", "Passage Area • Every 15 min")
+        occurrence.event.id == "extra_nest_sunset" -> Triple("🌇", "Nest Sunset", "Player's Nest • Hourly at :40")
+        occurrence.event.id == "extra_aurora_concert" -> Triple("🎶", "AURORA Concert", "Colosseum • Every 4h at :10")
+        occurrence.event.id == "extra_weekly_reset" -> Triple("🔄", "Weekly Eden Reset", "Eye of Eden • Sundays 00:00 PT")
+        occurrence.event.id == "extra_store_rotation" -> Triple("🛍️", "Store Item Rotation", "Aviary Shop • Mondays 00:00 PT")
+        occurrence.event.id == "extra_spell_shop" -> Triple("🔮", "Spell Shop Expanded", "Forgotten Ark & Aviary • Fri–Sun")
+        occurrence.event.id == "extra_fireworks_festival" -> Triple("🎆", "Fireworks Festival", "Aviary Village • 1st of month")
+        occurrence.event.category == com.lumanest.models.EventCategory.DOUBLE_CURRENCY || occurrence.event.id.contains("double", ignoreCase = true) -> {
+            if (occurrence.event.name.contains("Candle", ignoreCase = true)) {
+                Triple("🕯️", occurrence.event.name, occurrence.event.description.ifEmpty { "Daily Bonus • 2x Treasure Candles in realm" })
+            } else {
+                Triple("✨", occurrence.event.name, occurrence.event.description.ifEmpty { "Seasonal Bonus • 2x Seasonal Light in realm" })
+            }
+        }
+        else -> Triple("✨", occurrence.event.name, occurrence.event.description)
+    }
+
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = DeepMidnight.copy(alpha = 0.7f),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(NightSurfaceVariant),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(text = emoji, fontSize = 18.sp)
+            }
+
+            Spacer(modifier = Modifier.width(10.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = DogFluffWhite,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1
+                    )
+                    if (occurrence.isActiveNow) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF4ADE80))
+                        )
+                    }
+                }
+                Text(
+                    text = locationText,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MutedSlate,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                )
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Column(horizontalAlignment = Alignment.End) {
+                if (occurrence.isActiveNow) {
+                    Text(
+                        text = "Active Now",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color(0xFF4ADE80),
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "${formatExtraCountdown(occurrence.millisRemaining)} left",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color(0xFF4ADE80).copy(alpha = 0.8f)
+                    )
+                } else {
+                    val isWithin24Hours = occurrence.millisUntilStart < 24 * 3600 * 1000L
+                    Text(
+                        text = if (isWithin24Hours) {
+                            TimezoneHelper.formatEpochForZone(occurrence.startEpochMillis, userZoneId, is24Hour)
+                        } else {
+                            val zdt = java.time.Instant.ofEpochMilli(occurrence.startEpochMillis).atZone(userZoneId)
+                            val dayShort = zdt.dayOfWeek.name.take(3).lowercase().replaceFirstChar { it.uppercase() }
+                            val timeStr = TimezoneHelper.formatEpochForZone(occurrence.startEpochMillis, userZoneId, is24Hour)
+                            "$dayShort $timeStr"
+                        },
+                        style = MaterialTheme.typography.labelMedium,
+                        color = CozyWarmAmber,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
+                    )
+                    Text(
+                        text = "in ${formatExtraCountdown(occurrence.millisUntilStart)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = StarlightBlue,
+                        maxLines = 1
+                    )
+                }
+            }
+        }
+    }
+}
+
+fun formatExtraCountdown(millis: Long): String {
+    val totalSeconds = (millis / 1000).coerceAtLeast(0)
+    val totalMinutes = totalSeconds / 60
+    val totalHours = totalMinutes / 60
+    val days = totalHours / 24
+    val hours = totalHours % 24
+    val minutes = totalMinutes % 60
+    val seconds = totalSeconds % 60
+
+    return when {
+        days > 0 -> "${days}d ${hours}h"
+        hours > 0 -> "${hours}h ${minutes}m"
+        minutes > 0 -> "${minutes}m ${seconds}s"
+        else -> "${seconds}s"
+    }
+}
+

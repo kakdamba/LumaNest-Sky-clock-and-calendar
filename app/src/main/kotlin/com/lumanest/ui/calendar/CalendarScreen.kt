@@ -13,6 +13,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -32,17 +33,28 @@ import java.time.ZoneId
 fun CalendarScreen(
     events: List<SkyEvent>,
     userZoneId: ZoneId,
-    is24Hour: Boolean
+    is24Hour: Boolean,
+    showTsDot: Boolean = false,
+    onTsSectionViewed: () -> Unit = {}
 ) {
     var selectedCategory by remember { mutableStateOf<EventCategory?>(null) }
     val context = LocalContext.current
+
+    // Mark the Traveling Spirit announcement as seen the moment the user opens the
+    // Traveling Spirit section — this is what clears the red dots (dock + chip).
+    LaunchedEffect(selectedCategory, showTsDot) {
+        if (selectedCategory == EventCategory.TRAVELING_SPIRIT && showTsDot) {
+            onTsSectionViewed()
+        }
+    }
 
     // Integrate database events + dynamically calculated upcoming Shards
     val allCalendarEvents = remember(events) {
         val nowMillis = System.currentTimeMillis()
         val shardEvents = com.lumanest.eventengine.SkyEventEngine.calculateUpcomingShards(nowMillis, daysAhead = 7)
         (events + shardEvents)
-            // Filter strictly: Only include ongoing (active) or upcoming future events (end time in the future)
+            // Filter strictly: Only include ongoing (active) or upcoming future events, excluding daily recurring and community
+            .filter { it.category != EventCategory.DAILY_RECURRING && it.category != EventCategory.COMMUNITY }
             .filter { event ->
                 try {
                     val endEpoch = Instant.parse(event.endIso).toEpochMilli()
@@ -62,21 +74,23 @@ fun CalendarScreen(
 
     val filteredEvents = remember(allCalendarEvents, selectedCategory) {
         if (selectedCategory == null) {
-            // "All Events" only shows major events, seasons, spirits, etc.
+            // "All Events" only shows major events, seasons, spirits, double currency bonuses, etc.
             // Shard Eruptions are kept strictly in their dedicated category!
             allCalendarEvents.filter { it.category != EventCategory.SHARD_ERUPTION }
+        } else if (selectedCategory == EventCategory.MAJOR_EVENT) {
+            // Major Events tab shows both Major Events and Double Currency bonuses (Double Seasonal Light / Double Treasure Candles)
+            allCalendarEvents.filter { it.category == EventCategory.MAJOR_EVENT || it.category == EventCategory.DOUBLE_CURRENCY }
         } else {
             allCalendarEvents.filter { it.category == selectedCategory }
         }
     }
 
-    // Categories to show: Exclude DAILY_RECURRING (since that belongs on Home/Today schedule) and COMMUNITY
+    // Categories to show: Exclude DAILY_RECURRING (since that belongs on Home/Today schedule), COMMUNITY, and DOUBLE_CURRENCY
     val visibleCategories = listOf(
         EventCategory.SEASON,
-        EventCategory.SHARD_ERUPTION,
         EventCategory.TRAVELING_SPIRIT,
         EventCategory.MAJOR_EVENT,
-        EventCategory.DOUBLE_CURRENCY,
+        EventCategory.SHARD_ERUPTION,
         EventCategory.MAINTENANCE
     )
 
@@ -170,22 +184,35 @@ fun CalendarScreen(
                         EventCategory.TRAVELING_SPIRIT -> "Traveling Spirit"
                         EventCategory.MAJOR_EVENT -> "Major Events"
                         EventCategory.DOUBLE_CURRENCY -> "Double Light"
-                        EventCategory.SEASON -> "Seasons"
+                        EventCategory.SEASON -> "Season"
                         EventCategory.MAINTENANCE -> "Maintenance"
                         else -> cat.name.replace('_', ' ').lowercase().replaceFirstChar { it.uppercase() }
                     }
-                    FilterChip(
-                        selected = selectedCategory == cat,
-                        onClick = { selectedCategory = cat },
-                        label = { Text(displayName) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = CozyWarmAmber,
-                            selectedLabelColor = DeepMidnight,
-                            containerColor = NightSurfaceVariant,
-                            labelColor = DogFluffWhite
-                        ),
-                        modifier = Modifier.padding(end = 8.dp)
-                    )
+                FilterChip(
+                    selected = selectedCategory == cat,
+                    onClick = { selectedCategory = cat },
+                    label = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(displayName)
+                            if (cat == EventCategory.TRAVELING_SPIRIT && showTsDot) {
+                                Spacer(modifier = Modifier.width(5.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .size(7.dp)
+                                        .clip(androidx.compose.foundation.shape.CircleShape)
+                                        .background(Color(0xFFEF4444))
+                                )
+                            }
+                        }
+                    },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = CozyWarmAmber,
+                        selectedLabelColor = DeepMidnight,
+                        containerColor = NightSurfaceVariant,
+                        labelColor = DogFluffWhite
+                    ),
+                    modifier = Modifier.padding(end = 8.dp)
+                )
                 }
             }
         }
@@ -262,10 +289,15 @@ fun CalendarEventCard(event: SkyEvent, userZoneId: ZoneId) {
     val titleColor = if (event.category == EventCategory.SEASON) Color(0xFFFB923C) else DogFluffWhite
 
     val artDrawableRes = when {
+        event.id.contains("returning_spirit", ignoreCase = true) || event.name.contains("Returning", ignoreCase = true) ->
+            com.lumanest.app.R.drawable.art_returning_spirit_group_nov
+        event.id.contains("dancing_performer", ignoreCase = true) || event.name.contains("Dancing Performer", ignoreCase = true) ->
+            com.lumanest.app.R.drawable.art_dancing_performer
         event.id.contains("pearl", ignoreCase = true) || event.name.contains("Pearl", ignoreCase = true) ->
             com.lumanest.app.R.drawable.art_season_pearl
         event.id.contains("mischief", ignoreCase = true) || event.name.contains("Mischief", ignoreCase = true) ->
             com.lumanest.app.R.drawable.art_days_mischief
+        event.id.contains("double_hearts", ignoreCase = true) || event.category == EventCategory.DOUBLE_CURRENCY ||
         event.id.contains("double_candles", ignoreCase = true) || event.name.contains("Double Treasure", ignoreCase = true) ->
             com.lumanest.app.R.drawable.art_double_candles
         event.category == EventCategory.TRAVELING_SPIRIT ->
@@ -327,7 +359,7 @@ fun CalendarEventCard(event: SkyEvent, userZoneId: ZoneId) {
                     color = tagBgColor
                 ) {
                     Text(
-                        text = event.category.name.replace('_', ' '),
+                        text = if (event.category == EventCategory.DOUBLE_CURRENCY) "DOUBLE LIGHT" else event.category.name.replace('_', ' '),
                         color = tagTextColor,
                         style = MaterialTheme.typography.labelSmall,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
@@ -409,16 +441,38 @@ fun CalendarEventCard(event: SkyEvent, userZoneId: ZoneId) {
 }
 
 fun exportIcsCalendar(context: Context, events: List<SkyEvent>) {
+    // DEC-003 anti-spam policy: only seasons, big events, spirits, maintenance and
+    // double-currency windows are exported — the 21 weekly shard eruptions stay in-app.
+    val exportable = events.filter { it.category != EventCategory.SHARD_ERUPTION }
+
+    // RFC 5545 requires UTC timestamps as yyyyMMdd'T'HHmmss'Z'. Instant.toString()
+    // drops ":00" seconds ("T0700Z"), which strict calendar apps reject.
+    val utcFormat = java.time.format.DateTimeFormatter
+        .ofPattern("yyyyMMdd'T'HHmmss'Z'")
+        .withZone(java.time.ZoneId.of("UTC"))
+
+    fun toIcsUtc(iso: String): String = try {
+        utcFormat.format(Instant.parse(iso))
+    } catch (_: Exception) {
+        iso
+    }
+
+    fun icsEscape(text: String): String = text
+        .replace("\\", "\\\\")
+        .replace(";", "\\;")
+        .replace(",", "\\,")
+        .replace("\n", "\\n")
+
     val icsContent = buildString {
         appendLine("BEGIN:VCALENDAR")
         appendLine("VERSION:2.0")
         appendLine("PRODID:-//LumaNest//Cozy Sky Companion//EN")
-        events.forEach { e ->
+        exportable.forEach { e ->
             appendLine("BEGIN:VEVENT")
-            appendLine("SUMMARY:${e.name}")
-            appendLine("DESCRIPTION:${e.description}")
-            appendLine("DTSTART:${e.startIso.replace("-", "").replace(":", "").substringBefore(".")}")
-            appendLine("DTEND:${e.endIso.replace("-", "").replace(":", "").substringBefore(".")}")
+            appendLine("SUMMARY:${icsEscape(e.name)}")
+            appendLine("DESCRIPTION:${icsEscape(e.description)}")
+            appendLine("DTSTART:${toIcsUtc(e.startIso)}")
+            appendLine("DTEND:${toIcsUtc(e.endIso)}")
             appendLine("STATUS:CONFIRMED")
             appendLine("END:VEVENT")
         }
